@@ -217,12 +217,14 @@ async function cacheQr() {
 
 const stop = () => { clearInterval(timer); timer = null; };
 // Poll only while the card is on screen. 200 phones every 6 seconds is about 33 requests a second, which is fine.
-function openCard(c) {
+// intro: show the full-screen QR walkthrough first. Used for a new card and for logging back in with a code,
+// not for a plain reload of the card already on this phone.
+function openCard(c, intro = false) {
   code = c; store.set("code", c); showErr(""); shown = null; $("qr").removeAttribute("src");
   document.body.classList.add("carding");
   history.replaceState(null, "", location.pathname);
   refresh().then(cacheQr);
-  if (!store.get("seenIntro")) openSheet(true);
+  if (intro) openSheet(true);
   firstDone = false;
   stop(); timer = setInterval(() => {
     if (document.hidden) return;
@@ -234,22 +236,31 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && ti
 
 $("go").onclick = async () => {
   $("go").disabled = true;
-  try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); openCard(c.code); }
+  try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); openCard(c.code, true); }
   catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
   $("go").disabled = false;
 };
 // Full-screen QR. First time on this phone it explains itself, then points at the button.
 // Full-screen "Stamped!" so the attendee sees it even while holding up their QR.
 let popTimer = null;
-function showMoment(markHtml, title, line, note, colors, ms, buzz) {
+// then: another moment to play when this one ends (or is tapped), for the stamp-then-donut sequence.
+let nextMoment = null;
+function showMoment(markHtml, title, line, note, colors, ms, buzz, then = null) {
   if (!$("sheet").hidden) closeSheet();
+  nextMoment = then;
   const confetti = Array.from({ length: 28 }, (_, i) =>
     `<i style="left:${(i * 37) % 100}%;background:${colors[i % colors.length]};animation-delay:${(i % 7) * 0.07}s;--spin:${(i % 2 ? 1 : -1) * (180 + i * 23)}deg"></i>`).join("");
   $("stamped").innerHTML = `${confetti}${markHtml}<h2>${title}</h2><p>${line}</p><p class="muted">${note}</p>`;
   $("stamped").hidden = false;
   try { navigator.vibrate && navigator.vibrate(buzz); } catch {}
   clearTimeout(popTimer);
-  popTimer = setTimeout(() => { $("stamped").hidden = true; }, ms);
+  popTimer = setTimeout(endMoment, ms);
+}
+function endMoment() {
+  clearTimeout(popTimer);
+  const next = nextMoment;
+  nextMoment = null;
+  if (next) next(); else $("stamped").hidden = true;
 }
 const BITE = `<g class="bite" fill="#fff"><circle cx="160" cy="34" r="20"/><circle cx="140" cy="22" r="14"/><circle cx="172" cy="56" r="14"/></g>`;
 const fullDonut = (bitten) => {
@@ -266,28 +277,15 @@ function celebrateDonut() {
 function celebrate(stall, n, need) {
   const c = stall.color || "#365486";
   const done = n >= need;
-  if (done) {
-    showMoment(fullDonut(false), "Card complete!", `${esc(stall.name)} · ${n} of ${need}`,
-      `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.`,
-      [c, "#f59bb8", "#e9b872", "#365486"], 6000, [80, 60, 80, 60, 160]);
-    return;
-  }
-  if (!$("sheet").hidden) closeSheet();
-  const confetti = Array.from({ length: 28 }, (_, i) => {
-    const colors = [c, "#f59bb8", "#e9b872", "#365486"];
-    return `<i style="left:${(i * 37) % 100}%;background:${colors[i % colors.length]};animation-delay:${(i % 7) * 0.07}s;--spin:${(i % 2 ? 1 : -1) * (180 + i * 23)}deg"></i>`;
-  }).join("");
-  $("stamped").innerHTML = `${confetti}
-    <div class="mark" style="--c:${c};--k:${Look.inkOn(c)}">${Look.icon(stall.icon, 70, "currentColor", 2)}</div>
-    <h2>${done ? "Card complete!" : "Stamped!"}</h2>
-    <p>${esc(stall.name)} · ${n} of ${need}</p>
-    <p class="muted">${done ? `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.` : "Tap to close"}</p>`;
-  $("stamped").hidden = false;
-  try { navigator.vibrate && navigator.vibrate(done ? [80, 60, 80, 60, 160] : [60, 40, 120]); } catch {}
-  clearTimeout(popTimer);
-  popTimer = setTimeout(() => { $("stamped").hidden = true; }, done ? 6000 : 3000);
+  const mark = `<div class="mark" style="--c:${c};--k:${Look.inkOn(c)}">${Look.icon(stall.icon, 70, "currentColor", 2)}</div>`;
+  // Last stamp: show that stall's stamp first, then the donut, back to back.
+  const complete = () => showMoment(fullDonut(false), "Card complete!", `All ${need} stamps collected.`,
+    `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.`,
+    ["#f59bb8", "#e9b872", ...cfg.stalls.map((s) => s.color || "#365486")], 6000, [80, 60, 80, 60, 160]);
+  showMoment(mark, "Stamped!", `${esc(stall.name)} · ${n} of ${need}`, done ? "Tap to continue" : "Tap to close",
+    [c, "#f59bb8", "#e9b872", "#365486"], done ? 2200 : 3000, [60, 40, 120], done ? complete : null);
 }
-$("stamped").onclick = () => { clearTimeout(popTimer); $("stamped").hidden = true; };
+$("stamped").onclick = endMoment;
 
 function openSheet(intro) {
   $("sheetHead").textContent = intro ? "This is your stamp card QR" : "Your QR";
@@ -301,7 +299,7 @@ function openSheet(intro) {
 function closeSheet() {
   const wasIntro = $("sheet").dataset.intro === "1";
   $("sheet").hidden = true;
-  if (wasIntro) { store.set("seenIntro", "1"); $("tip").hidden = false; $("qrOpen").classList.add("pulse"); }
+  if (wasIntro) { $("tip").hidden = false; $("qrOpen").classList.add("pulse"); }
 }
 const clearTip = () => { $("tip").hidden = true; $("qrOpen").classList.remove("pulse"); };
 $("qrOpen").onclick = () => { clearTip(); openSheet(false); };
@@ -310,15 +308,17 @@ $("tipOk").onclick = clearTip;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
 
 $("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; $("codeIn").focus(); };
-$("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) openCard(c); };
-$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { stop(); store.del("code"); store.del("seenIntro"); location.reload(); } };
+$("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) openCard(c, true); };
+$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { stop(); store.del("code"); location.reload(); } };
 
 (async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   if (!(await loadCfg())) { showErr("Can't reach the server. Check your wifi and reload."); return; }
   const fromHash = (location.hash.match(/c=([A-Za-z0-9]+)/) || [])[1];
   const saved = fromHash || store.get("code");
-  if (saved) openCard(saved.toUpperCase()); else $("start").hidden = false;
+  // A #c= link to a card other than the one saved here counts as logging in, so it gets the walkthrough.
+  const isLogin = !!fromHash && fromHash.toUpperCase() !== store.get("code");
+  if (saved) openCard(saved.toUpperCase(), isLogin); else $("start").hidden = false;
 })();
 </script>
 </body>
