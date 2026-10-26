@@ -13,7 +13,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin || !SHELL.includes(url.pathname)) return;
-  // Slow wifi is worse than no wifi: give the network 4 seconds, then use the saved copy.
+  // Wait up to 4 seconds for the network, then use the saved copy.
   const net = fetch(e.request).then((r) => {
     if (r.ok) { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(url.pathname, copy)); }
     return r;

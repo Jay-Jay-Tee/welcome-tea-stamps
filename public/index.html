@@ -15,7 +15,7 @@
 <main>
   <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span></header>
 
-  <p class="kicker" id="kicker">Welcome to the</p>
+  <p class="kicker" id="kicker">Stamp card</p>
   <h1 id="title">Welcome Tea</h1>
   <p class="muted" id="when"></p>
 
@@ -24,8 +24,8 @@
       <div class="progress">
         <div id="startDonut"></div>
         <div class="say">
-          <h2 id="startHead">Get stamped. Get a donut.</h2>
-          <p>Get stamped at every wing's stall and the donut is yours. No app, no sign up.</p>
+          <h2 id="startHead">Collect a stamp at each stall</h2>
+          <p id="startBody">Each wing has a stall. Get a stamp at every stall and you get a free donut. You don't need to download anything or sign up.</p>
         </div>
       </div>
       <div class="row" style="display:block">
@@ -56,7 +56,7 @@
       <p class="big">Show this at each stall</p>
       <img id="qr" alt="Your stamp card QR code">
       <div class="code" id="code"></div>
-      <p class="muted">The volunteer scans it. Screenshot this as a backup, and keep the code to reopen your card on another phone.</p>
+      <p class="muted">Volunteers scan this QR code. Take a screenshot in case your connection drops. You can also use the code to open your card on another phone.</p>
     </div>
     <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
   </section>
@@ -86,20 +86,20 @@ async function loadCfg() {
   $("title").textContent = cfg.name;
   $("when").textContent = [cfg.date, cfg.time, cfg.venue].filter((x) => x && x !== "TBC").join(" · ");
   $("startDonut").innerHTML = Look.donut(0, cfg.reward.stampsRequired, [], 128);
-  const num = (n) => ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][n] || String(n);
-  $("startHead").textContent = `${num(cfg.stalls.length)} stalls. One donut.`;
+  $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   return true;
 }
 
-// Draft copy. Short, a bit cheeky, no exclamation-mark overload.
+// Headline and line under the donut, by card state.
 function words(v) {
   const n = v.stamps.length, need = v.stampsRequired, left = need - n;
-  if (v.donutClaimed) return ["Donut acquired.", "Hope it was a good one. Thanks for coming by!"];
-  if (v.complete && v.donutsOut) return ["Full card!", "The donuts ran out, sorry. Find a committee member and we'll sort you out."];
-  if (v.complete) return ["Donut unlocked.", `Show this screen at the ${cfg.reward.station.name}. Go before it gets eaten.`];
-  if (n === 0) return ["Your card is ready.", `Get stamped at all ${need} stalls. ${need} stamps, 1 free donut.`];
-  if (left === 1) return ["One more.", "You can almost smell the donut."];
-  return [`${n} down, ${left} to go.`, "Keep going. The donut is waiting."];
+  const corner = cfg.reward.station.name.toLowerCase();
+  if (v.donutClaimed) return ["You got your donut", "Thanks for coming to the Welcome Tea."];
+  if (v.complete && v.donutsOut) return ["Card complete", "Sorry, the donuts have run out. Look for a committee member and we'll sort something out."];
+  if (v.complete) return ["Card complete", `Show this screen at the ${corner} to get your donut.`];
+  if (n === 0) return ["No stamps yet", `Visit each stall and show your QR code. You need ${need} stamps for a donut.`];
+  if (left === 1) return ["1 stamp left", `Get your last stamp, then go to the ${corner}.`];
+  return [`${n} of ${need} stamps`, `${left} more for your donut.`];
 }
 
 function render() {

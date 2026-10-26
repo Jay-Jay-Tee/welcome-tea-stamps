@@ -15,7 +15,7 @@
   #result.ok { box-shadow: 6px 6px 0 var(--ok); }
   #result.warn { box-shadow: 6px 6px 0 var(--warn); background: #fffaf2; }
   #result.bad { box-shadow: 6px 6px 0 var(--bad); background: #fff6f5; }
-  /* Rubber stamp: readable from arm's length in a loud hall */
+  /* Large result stamp */
   .ink { display: inline-block; font-family: "DM Sans", system-ui, sans-serif; font-weight: 700; font-size: 2.2rem; letter-spacing: .08em; text-transform: uppercase; color: var(--c); border: 4px solid var(--c); outline: 2px solid var(--c); outline-offset: 3px; border-radius: 10px; padding: 2px 14px; transform: rotate(-4deg); margin: 6px 0 12px; animation: thunk .4s cubic-bezier(.2, 1.4, .4, 1) both; --r: -4deg; }
   .ink.warn { color: var(--warn); border-color: var(--warn); outline-color: var(--warn); }
   .ink.bad { color: var(--bad); border-color: var(--bad); outline-color: var(--bad); }
@@ -29,8 +29,8 @@
   <header class="top"><img src="/logo.png" alt=""><span>Welcome Tea<br>Volunteer screen</span></header>
 
   <section id="login" hidden>
-    <h1>Log in your station</h1>
-    <p>Scan your station's login QR from the briefing with your phone camera. Or type the 16 character key.</p>
+    <h1>Log in to your station</h1>
+    <p>Scan your station's login QR with your phone camera, or type in the 16 character key.</p>
     <input id="keyIn" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false">
     <div class="row"><button id="keyGo">Start</button></div>
     <p class="banner bad" id="loginErr" hidden></p>
@@ -108,7 +108,7 @@ async function handle(raw, manual) {
     else if (!e.status && me.kind === "stall") {
       saveQueue([...new Set([...queue(), code])]);
       buzz(80);
-      show("warn", `<p class="big">No wifi. Saved.</p><p>${esc(code)} gets stamped when the connection comes back. Hand over the swag, they're fine.</p>` + nextBtn);
+      show("warn", `<p class="big">No connection. Stamp saved.</p><p>${esc(code)} will be stamped automatically when the connection is back. You can still give them their swag.</p>` + nextBtn);
     } else show("bad", `<p class="big">Couldn't do that</p><p>${esc(e.message)}. If the wifi is bad, try again in a moment.</p>` + nextBtn);
   } finally {
     busy = false; wireNext();
@@ -120,7 +120,7 @@ async function stamp(code) {
   const who = r.nickname ? esc(r.nickname) : "Code " + esc(code);
   buzz(r.result === "stamped" ? 80 : [60, 60, 60]);
   show(r.result === "stamped" ? "ok" : "warn",
-    (r.result === "stamped" ? ink("", "Stamped") : ink("warn", "Been here") + `<p class="big">Already stamped at this stall</p>`) +
+    (r.result === "stamped" ? ink("", "Stamped") : ink("warn", "Already") + `<p class="big">Already stamped at this stall</p>`) +
     `<p>${who}: <b>${r.count} of ${r.stampsRequired}</b> stamps.</p>
      <label class="swag"><input type="checkbox" id="swag" ${r.swagGiven ? "checked" : ""}> Swag handed over</label>
      <div class="row"><button id="undo" class="danger">Undo this stamp</button></div>` + nextBtn);
@@ -136,12 +136,12 @@ async function redeem(code) {
   const r = await post("/api/station/redeem", { code });
   const [cls, title, body] = {
     redeemed: ["ok", "Give them a donut", "Marked as collected."],
-    already: ["bad", "Already collected", "This card already got its donut. Say no, nicely."],
+    already: ["bad", "Already collected", "This card has already been used for a donut."],
     incomplete: ["bad", "Not a full card yet", `${r.count} of ${r.stampsRequired} stamps. Send them back to the stalls.`],
-    out: ["warn", "No more donuts", "The donut switch is set to out. Send them to a committee member."],
+    out: ["warn", "No more donuts", "Donuts are marked as finished. Send them to a committee member."],
   }[r.result];
   buzz(r.result === "redeemed" ? 80 : [60, 60, 60]);
-  show(cls, ink(cls === "ok" ? "" : cls, r.result === "redeemed" ? "Donut!" : r.result === "out" ? "All gone" : "Nope") + `<p class="big">${title}</p><p>${body}</p>` +
+  show(cls, ink(cls === "ok" ? "" : cls, r.result === "redeemed" ? "Give donut" : r.result === "out" ? "Finished" : "No donut") + `<p class="big">${title}</p><p>${body}</p>` +
     (r.result === "redeemed" ? `<div class="row"><button id="undo" class="danger">Undo (wrong card)</button></div>` : "") + nextBtn);
   if ($("undo")) $("undo").onclick = async () => {
     try { await post("/api/station/unredeem", { code }); show("warn", `<p class="big">Claim removed</p><p>${esc(code)} can collect again.</p>` + nextBtn); wireNext(); }
@@ -197,7 +197,7 @@ async function start(k) {
   const c = me.color || "#365486";
   $("badge").style.cssText = `--c:${c};--k:${Look.inkOn(c)}`;
   $("work").style.setProperty("--c", Look.readable(c));
-  $("badge").innerHTML = `${Look.icon(me.icon, 36, "currentColor", 2.2)}<div><b></b><small>${me.kind === "donut" ? "Scan full cards, hand out donuts" : "Scan, hand over swag, tick the box"}</small></div>`;
+  $("badge").innerHTML = `${Look.icon(me.icon, 36, "currentColor", 2.2)}<div><b></b><small>${me.kind === "donut" ? "Check full cards and give out donuts" : "Stamp cards and give out swag"}</small></div>`;
   $("badge").querySelector("b").textContent = me.name;
   saveQueue(queue()); flush();
 }

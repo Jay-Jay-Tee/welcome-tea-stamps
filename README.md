@@ -47,7 +47,7 @@ Start the paid instances a day or two before the event.
 
 ## On the day
 - Volunteers scan their station's login QR from the admin page (QR button) or from a printed copy.
-- When donuts run out, press **Donut corner says no more donuts**. Cards then say so and the corner refuses claims. Press it again to undo.
+- When donuts run out, press **Mark donuts as finished**. Full cards then show a message and the donut corner can't give out more. Press **Donuts are available again** to undo.
 - A card someone can't scan: fix it under "Fix a card" with the attendee's code.
 
 ## Reset
@@ -63,7 +63,7 @@ Start the paid instances a day or two before the event.
 Card codes are 8 characters and station keys 16, from an alphabet with no vowels and no digits that look like vowels, so they can't spell words. A blocklist in `src/codes.ts` catches consonant-only rude bits and digit stand-ins (like 5 for S), and any code that hits it is rerolled. The test checks 100,000 codes.
 
 ## Look
-Matches nuscomputing.com: Club logo, DM Sans headings, Quicksand body, slate blue `#365486`, outlined cards with a solid offset shadow. Each wing has a colour and icon. The progress meter is a donut that gets icing per stamp, sprinkled in the colours of the stalls visited. Fonts load from Google Fonts and fall back to the phone's own font with no wifi.
+Matches nuscomputing.com: Club logo, DM Sans headings, Quicksand body, slate blue `#365486`, outlined cards with a solid offset shadow. Each wing has a colour and icon. The progress meter is a donut that gets one section of icing per stamp, with sprinkles in the colours of the stalls visited. Fonts load from Google Fonts and fall back to the phone's own font with no wifi.
 
 ## Privacy
 Stores a random code, an optional nickname, stamps and a donut time. No names, emails or phone numbers. If contact details are ever collected, check PDPA with the staff advisor first. There's no lucky draw, so no draw rules are needed.
@@ -72,10 +72,10 @@ Stores a random code, an optional nickname, stamps and a donut time. No names, e
 1. Admin page > **Download CSV** if you want the numbers.
 2. Render dashboard: delete the web service, then the Postgres database. Both bill monthly until deleted.
 3. Remove the Cloudflare CNAME if you added one.
-4. Keep the repo. Next time it's one config file and a new Blueprint.
+4. Keep the repo. For the next event, edit `config/event.json` and create a new Blueprint.
 
 ## Known gaps
 - Club logo (`public/logo.png`) was taken from nuscomputing.com. Swap in an official file if Publicity has a cleaner one.
-- Card wording is a draft. Read it before the day.
+- Read through the card wording before the day.
 - Not yet tried on real iOS Safari and Android Chrome. Camera access needs HTTPS, which Render provides.
-- Anyone can make cards, so "Cards" on the admin page can be inflated. Stamps and donuts can't be.
+- Anyone can make cards, so the "Cards" count on the admin page can be higher than the real number of people. The stamp and donut counts are accurate.

@@ -341,7 +341,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
     console.error(err);
-    res.status(500).json({ error: "Something broke on our side" });
+    res.status(500).json({ error: "Server error, try again" });
   });
 
   return app;

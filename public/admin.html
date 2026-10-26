@@ -22,7 +22,7 @@
     <p class="banner bad" id="loginErr" hidden></p>
   </section>
   <section id="dash" hidden>
-    <h1>Welcome Tea live</h1>
+    <h1>Welcome Tea dashboard</h1>
     <div id="stats"></div>
     <div id="donutBanner" class="banner"></div>
     <div class="row"><button id="toggle"></button></div>
@@ -31,7 +31,7 @@
     <table id="tbl"></table>
     <div class="row"><button id="reveal" class="ghost">Show keys</button></div>
     <div id="qrBox" class="qr banner" hidden></div>
-    <p class="muted">Keys log a phone in as that station. Keep them off the venue screen. If one leaks or a phone goes missing, press New key.</p>
+    <p class="muted">Anyone with a station's key can stamp as that station, so don't show this page on a projector. If a key leaks or a phone goes missing, press New key.</p>
 
     <hr>
     <h2>Fix a card</h2>
@@ -72,8 +72,8 @@ async function load() {
   $("stats").innerHTML = [["Cards", stats.attendees], ["Stamps", stats.stamps], ["Full cards", stats.completed], ["Donuts given", stats.donutsGiven]]
     .map(([k, v]) => `<span class="stat"><b>${v}</b>${k}</span>`).join("");
   $("donutBanner").className = "banner " + (stats.donutsOut ? "bad" : "ok");
-  $("donutBanner").textContent = stats.donutsOut ? "Donuts are marked OUT. Cards say no more donuts and the donut corner refuses claims." : "Donuts are available.";
-  $("toggle").textContent = stats.donutsOut ? "Donuts are back" : "Donut corner says no more donuts";
+  $("donutBanner").textContent = stats.donutsOut ? "Donuts are marked as finished. Full cards show a message, and the donut corner can't give out more." : "Donuts are available.";
+  $("toggle").textContent = stats.donutsOut ? "Donuts are available again" : "Mark donuts as finished";
   $("tbl").innerHTML = "<tr><th>Station</th><th>Stamps</th><th>Swag</th><th>Login</th></tr>" + stats.stations.map((s) => `<tr>
       <td>${esc(s.name)}${showKeys ? `<br><span class="key">${esc(s.secret)}</span>` : ""}</td>
       <td>${s.kind === "stall" ? s.stamps : "-"}</td>

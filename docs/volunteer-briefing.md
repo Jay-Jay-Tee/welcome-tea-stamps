@@ -2,39 +2,39 @@
 
 Wed 28 Oct, 3-6pm, COM3 MPH.
 
-**Your job:** scan the card, hand over your stall's swag, tick the box.
+At your stall you scan each person's card, give them your stall's swag, and tick the swag box on your phone.
 
 ## Before doors open (2 minutes)
-1. Get your station's login QR from the Tech Lead. Scan it with your phone camera and open the link. Your station name appears at the top.
+1. Get your station's login QR from the Tech Lead. Scan it with your phone camera and open the link. Your station's name shows at the top of the page.
 2. Tap **Start camera** and allow camera access.
-3. Keep the page open. Don't share the login QR. Anyone with it can stamp as your stall.
+3. Keep the page open. Don't share the login QR, because anyone who has it can stamp as your stall.
 
 ## When someone comes to your stall
-1. They show the QR on their card page. Point your camera at it.
-2. Green box that says **Stamped**: hand over your swag and tick **Swag handed over**.
+1. They show the QR code on their card page. Point your camera at it.
+2. If you see **STAMPED**, give them your swag and tick **Swag handed over**.
 3. Tap **Next person**.
 
-Orange **Already stamped here** means they visited before. Nothing to do. Nobody gets stamped twice.
+If you see **ALREADY**, they were stamped at your stall before. You don't need to do anything. A card can only get one stamp per stall.
 
-Stamped the wrong person? Tap **Undo this stamp**.
+If you stamped the wrong person, tap **Undo this stamp**.
 
-## Camera won't scan?
-Type the 8 character code shown under their QR, then tap Go.
+## If the camera won't scan
+Type the 8 character code shown under their QR code, then tap **Go**.
 
-## Wifi is bad?
-Keep scanning. When there's no connection the screen says **No wifi. Saved.** The stamp uploads itself once wifi is back, as long as the page stays open. Tell them they're fine.
+## If the wifi is bad
+Keep scanning. With no connection the screen shows **No connection. Stamp saved.** The stamp is sent automatically when the connection comes back, as long as you keep the page open. You can still give them their swag.
 
-## Wifi is completely dead?
-Switch to paper cards. Sign or stamp your stall's box by hand. Tell the Tech Lead.
+## If the wifi is completely down
+Use the paper cards. Sign or stamp your stall's circle by hand, and let the Tech Lead know.
 
 ## Donut corner only
-Log in with the donut corner QR, then scan the card.
-- **Give them a donut** (green): hand it over.
-- **Already collected** or **Not a full card yet** (red): no donut. Send them back to the stalls if they aren't done.
-- **No more donuts**: we ran out. Say sorry and point them to a committee member.
-- Paper card with every box filled: give a donut and cross out the "used" line.
+Log in with the donut corner QR, then scan each card.
+- **GIVE DONUT** (green): give them a donut.
+- **NO DONUT** (red): either the card already got a donut, or it doesn't have all 5 stamps yet. The screen says which. If they're not done, send them back to the stalls.
+- **FINISHED**: the donuts have run out. Apologise and send them to a committee member.
+- Paper card with every circle filled: give them a donut and cross out the "used" line.
 
-Gave a donut to the wrong card? Tap **Undo (wrong card)**.
+If you gave a donut to the wrong card, tap **Undo (wrong card)**.
 
-## Lost your phone or someone saw your QR?
-Tell the Tech Lead. They make a new key and your old login stops working.
+## If you lose your phone or someone sees your QR
+Tell the Tech Lead. They'll make a new key, and your old login will stop working.
