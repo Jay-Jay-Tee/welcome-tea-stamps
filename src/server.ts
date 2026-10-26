@@ -13,4 +13,12 @@ const pool = await makePool(process.env.DATABASE_URL);
 if (!process.env.DATABASE_URL) console.warn("No DATABASE_URL: using in-memory data. It vanishes on restart.");
 const app = await createApp(pool, loadConfig(), adminPin);
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => console.log(`Stamp rally on http://localhost:${port}`));
+// Express 5 hands listen errors to this callback instead of throwing, so check for one.
+app.listen(port, (err?: Error) => {
+  if (err) {
+    const busy = (err as NodeJS.ErrnoException).code === "EADDRINUSE";
+    console.error(busy ? `Port ${port} is already in use. Stop the other server, or run PORT=3001 npm start.` : err.message);
+    process.exit(1);
+  }
+  console.log(`Stamp rally on http://localhost:${port}`);
+});
