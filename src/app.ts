@@ -8,12 +8,15 @@ import { migrate } from "./db.js";
 
 // No 0/O/1/I/L so a code read off paper survives a bad squint.
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const newCode = () => Array.from({ length: 8 }, () => ALPHABET[crypto.randomInt(ALPHABET.length)]).join("");
-const newPin = () => String(crypto.randomInt(1000, 10000));
+const randomCode = (len: number) => Array.from({ length: len }, () => ALPHABET[crypto.randomInt(ALPHABET.length)]).join("");
+const CODE_RE = /^[A-HJKMNP-Z2-9]{8}$/;
 const cleanCode = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+// Station keys are 16 characters (about 79 bits), so guessing one over the network is hopeless and no rate limit is needed.
+const newSecret = () => randomCode(16);
 
-type Station = { id: string; name: string; kind: "stall" | "donut"; pin: string; sort: number };
+type Station = { id: string; name: string; kind: "stall" | "donut"; secret: string; sort: number };
 type Attendee = { id: number; code: string; nickname: string | null; donut_claimed_at: Date | null };
+type StampRow = { attendee_id: number; stall_id: string; swag_given: boolean };
 
 class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -25,21 +28,27 @@ const wrap =
   (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
     fn(req, res).catch(next);
 
+const sameSecret = (a: string, b: string) =>
+  crypto.timingSafeEqual(crypto.createHash("sha256").update(a).digest(), crypto.createHash("sha256").update(b).digest());
+
 export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) {
   await migrate(pool);
+  const stallIds = new Set(cfg.stalls.map((s) => s.id));
 
-  // Stations come from the config file. Existing PINs are kept so a restart never invalidates printed briefings.
+  // Stations mirror the config file. Keys of existing stations survive restarts, so the briefing stays valid.
+  // Stations no longer in the config are deleted, so their keys stop working.
   const wanted = [
     ...cfg.stalls.map((s, i) => ({ id: s.id, name: s.name, kind: "stall", sort: i })),
     { id: cfg.reward.station.id, name: cfg.reward.station.name, kind: "donut", sort: 99 },
   ];
-  for (const s of wanted) {
+  for (const { id } of (await pool.query("select id from stations")).rows)
+    if (!wanted.some((w) => w.id === id)) await pool.query("delete from stations where id=$1", [id]);
+  for (const s of wanted)
     await pool.query(
-      `insert into stations (id, name, kind, pin, sort) values ($1,$2,$3,$4,$5)
+      `insert into stations (id, name, kind, secret, sort) values ($1,$2,$3,$4,$5)
        on conflict (id) do update set name = excluded.name, kind = excluded.kind, sort = excluded.sort`,
-      [s.id, s.name, s.kind, newPin(), s.sort],
+      [s.id, s.name, s.kind, newSecret(), s.sort],
     );
-  }
 
   const getSetting = async (key: string) =>
     (await pool.query("select value from settings where key=$1", [key])).rows[0]?.value as string | undefined;
@@ -49,17 +58,18 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
       [key, value],
     );
 
-  const findAttendee = async (code: string): Promise<Attendee> => {
-    const r = await pool.query("select * from attendees where code=$1", [cleanCode(code)]);
+  const findAttendee = async (raw: unknown): Promise<Attendee> => {
+    const code = cleanCode(raw);
+    const r = CODE_RE.test(code) ? await pool.query("select * from attendees where code=$1", [code]) : { rows: [] };
     if (!r.rows[0]) throw new HttpError(404, "No card with that code");
     return r.rows[0];
   };
 
+  // Only stamps from stalls in the current config count.
   const stampsOf = async (attendeeId: number) =>
-    (await pool.query("select stall_id, swag_given from stamps where attendee_id=$1", [attendeeId])).rows as {
-      stall_id: string;
-      swag_given: boolean;
-    }[];
+    ((await pool.query("select * from stamps where attendee_id=$1", [attendeeId])).rows as StampRow[]).filter((s) =>
+      stallIds.has(s.stall_id),
+    );
 
   const cardView = async (a: Attendee) => {
     const stamps = await stampsOf(a.id);
@@ -75,34 +85,29 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
   };
 
   const app = express();
+  app.disable("x-powered-by");
+  app.set("trust proxy", 1); // Render terminates TLS in front of us, so req.protocol is https there
   app.use(express.json({ limit: "10kb" }));
   app.use(express.static(path.resolve("public")));
   app.get("/vendor/jsqr.js", (_req, res) => res.sendFile(path.resolve("node_modules/jsqr/dist/jsQR.js")));
 
+  const baseUrl = (req: Request) => process.env.PUBLIC_URL?.replace(/\/$/, "") ?? `${req.protocol}://${req.get("host")}`;
+  const svg = async (res: Response, text: string) =>
+    res.type("image/svg+xml").send(await QRCode.toString(text, { type: "svg", margin: 1, errorCorrectionLevel: "M" }));
+
   // ---- public: attendee ----
-  app.get(
-    "/api/config",
-    wrap(async (_req, res) => {
-      res.json({
-        name: cfg.name,
-        date: cfg.date,
-        time: cfg.time,
-        venue: cfg.venue,
-        stalls: cfg.stalls,
-        reward: cfg.reward,
-      });
-    }),
-  );
+  app.get("/api/config", (_req, res) => {
+    res.json({ name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue, stalls: cfg.stalls, reward: cfg.reward });
+  });
 
   app.post(
     "/api/cards",
     wrap(async (req, res) => {
-      const nickname = String(req.body?.nickname ?? "").trim().slice(0, 30) || null;
+      const nickname = String(req.body?.nickname ?? "").replace(/[<>]/g, "").trim().slice(0, 30) || null;
       for (let i = 0; i < 5; i++) {
-        const code = newCode();
         const r = await pool.query(
           "insert into attendees (code, nickname) values ($1,$2) on conflict (code) do nothing returning *",
-          [code, nickname],
+          [randomCode(8), nickname],
         );
         if (r.rows[0]) return res.status(201).json(await cardView(r.rows[0]));
       }
@@ -112,84 +117,73 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
 
   app.get(
     "/api/cards/:code",
-    wrap(async (req, res) => res.json(await cardView(await findAttendee(req.params.code as string)))),
+    wrap(async (req, res) => res.json(await cardView(await findAttendee(req.params.code)))),
   );
 
   app.get(
     "/api/qr/:code.svg",
     wrap(async (req, res) => {
       const code = cleanCode(req.params.code);
-      res.type("image/svg+xml").send(await QRCode.toString(code, { type: "svg", margin: 1, errorCorrectionLevel: "M" }));
+      if (!CODE_RE.test(code)) throw new HttpError(404, "Not a card code");
+      await svg(res, code);
     }),
   );
 
-  // Generic QR for the printable sheet (door poster). Short text only.
+  // Door poster: a QR of this site's own address.
   app.get(
-    "/api/qr.svg",
-    wrap(async (req, res) => {
-      const text = String(req.query.text ?? "").slice(0, 200);
-      if (!text) throw new HttpError(400, "text is required");
-      res.type("image/svg+xml").send(await QRCode.toString(text, { type: "svg", margin: 1 }));
-    }),
+    "/api/entry-qr.svg",
+    wrap(async (req, res) => svg(res, baseUrl(req) + "/")),
   );
 
   // ---- stations (volunteers) ----
-  const stationAuth = async (req: Request, _res: Response, next: NextFunction) => {
-    try {
-      const pin = String(req.header("x-pin") ?? "");
-      const r = await pool.query("select * from stations where pin=$1", [pin]);
-      if (!r.rows[0]) throw new HttpError(401, "Wrong PIN");
-      (req as any).station = r.rows[0] as Station;
-      next();
-    } catch (e) {
-      next(e);
-    }
+  const stationFor = async (req: Request): Promise<Station> => {
+    const secret = cleanCode(req.header("x-key"));
+    const r = secret.length === 16 ? await pool.query("select * from stations where secret=$1", [secret]) : { rows: [] };
+    if (!r.rows[0]) throw new HttpError(401, "That station key doesn't work. Ask the Tech Lead for a new one.");
+    return r.rows[0];
   };
-  const asStation =
-    (kind: Station["kind"], fn: (req: Request, res: Response, st: Station) => Promise<unknown>) =>
-    [
-      stationAuth,
-      wrap(async (req, res) => {
-        const st = (req as any).station as Station;
-        if (st.kind !== kind) throw new HttpError(403, kind === "stall" ? "Use a stall PIN for stamping" : "Only the donut corner can do that");
-        return fn(req, res, st);
-      }),
-    ] as const;
+  const asStation = (kind: Station["kind"], fn: (req: Request, res: Response, st: Station) => Promise<unknown>) =>
+    wrap(async (req, res) => {
+      const st = await stationFor(req);
+      if (st.kind !== kind)
+        throw new HttpError(403, kind === "stall" ? "This is the donut corner login. It can't stamp." : "Only the donut corner can do that");
+      return fn(req, res, st);
+    });
 
-  app.get("/api/station/me", stationAuth, (req, res) => {
-    const st = (req as any).station as Station;
-    res.json({ id: st.id, name: st.name, kind: st.kind });
-  });
+  app.get(
+    "/api/station/me",
+    wrap(async (req, res) => {
+      const st = await stationFor(req);
+      res.json({ id: st.id, name: st.name, kind: st.kind });
+    }),
+  );
 
   app.post(
     "/api/station/stamp",
-    ...asStation("stall", async (req, res, st) => {
+    asStation("stall", async (req, res, st) => {
       const a = await findAttendee(req.body?.code);
       const r = await pool.query(
         "insert into stamps (attendee_id, stall_id) values ($1,$2) on conflict (attendee_id, stall_id) do nothing returning stall_id",
         [a.id, st.id],
       );
+      const mine = (await stampsOf(a.id)).find((s) => s.stall_id === st.id);
       const card = await cardView(a);
-      res.json({ ...card, result: r.rows[0] ? "stamped" : "already", count: card.stamps.length });
+      res.json({ ...card, result: r.rows[0] ? "stamped" : "already", count: card.stamps.length, swagGiven: !!mine?.swag_given });
     }),
   );
 
   app.post(
     "/api/station/swag",
-    ...asStation("stall", async (req, res, st) => {
+    asStation("stall", async (req, res, st) => {
       const a = await findAttendee(req.body?.code);
-      await pool.query("update stamps set swag_given=$3 where attendee_id=$1 and stall_id=$2", [
-        a.id,
-        st.id,
-        !!req.body?.given,
-      ]);
+      await pool.query("update stamps set swag_given=$3 where attendee_id=$1 and stall_id=$2", [a.id, st.id, !!req.body?.given]);
       res.json({ ok: true });
     }),
   );
 
   app.post(
     "/api/station/undo",
-    ...asStation("stall", async (req, res, st) => {
+    asStation("stall", async (req, res, st) => {
       const a = await findAttendee(req.body?.code);
       await pool.query("delete from stamps where attendee_id=$1 and stall_id=$2", [a.id, st.id]);
       res.json(await cardView(a));
@@ -198,7 +192,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
 
   app.post(
     "/api/station/redeem",
-    ...asStation("donut", async (req, res) => {
+    asStation("donut", async (req, res) => {
       const a = await findAttendee(req.body?.code);
       const card = await cardView(a);
       if (card.donutClaimed) return res.json({ ...card, result: "already" });
@@ -216,7 +210,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
 
   app.post(
     "/api/station/unredeem",
-    ...asStation("donut", async (req, res) => {
+    asStation("donut", async (req, res) => {
       const a = await findAttendee(req.body?.code);
       await pool.query("update attendees set donut_claimed_at=null where id=$1", [a.id]);
       res.json(await cardView(a));
@@ -225,32 +219,20 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
 
   // ---- admin ----
   const adminAuth = (req: Request, _res: Response, next: NextFunction) =>
-    next(
-      crypto.timingSafeEqual(
-        crypto.createHash("sha256").update(String(req.header("x-admin-pin") ?? "")).digest(),
-        crypto.createHash("sha256").update(adminPin).digest(),
-      )
-        ? undefined
-        : new HttpError(401, "Wrong admin PIN"),
-    );
+    next(sameSecret(String(req.header("x-admin-pin") ?? ""), adminPin) ? undefined : new HttpError(401, "Wrong admin PIN"));
 
   app.get(
     "/api/admin/stats",
     adminAuth,
     wrap(async (_req, res) => {
       const stations = (await pool.query("select * from stations order by sort")).rows as Station[];
-      const stamps = (await pool.query("select stall_id, swag_given, attendee_id from stamps")).rows as {
-        stall_id: string;
-        swag_given: boolean;
-        attendee_id: number;
-      }[];
+      const stamps = ((await pool.query("select * from stamps")).rows as StampRow[]).filter((s) => stallIds.has(s.stall_id));
       const attendees = (await pool.query("select id, donut_claimed_at from attendees")).rows as Attendee[];
       const perAttendee = new Map<number, number>();
       for (const s of stamps) perAttendee.set(s.attendee_id, (perAttendee.get(s.attendee_id) ?? 0) + 1);
-      const need = cfg.reward.stampsRequired;
       res.json({
         attendees: attendees.length,
-        completed: [...perAttendee.values()].filter((n) => n >= need).length,
+        completed: [...perAttendee.values()].filter((n) => n >= cfg.reward.stampsRequired).length,
         donutsGiven: attendees.filter((a) => a.donut_claimed_at).length,
         donutsOut: (await getSetting("donuts_out")) === "1",
         stamps: stamps.length,
@@ -258,11 +240,36 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
           id: st.id,
           name: st.name,
           kind: st.kind,
-          pin: st.pin,
+          secret: st.secret,
           stamps: stamps.filter((s) => s.stall_id === st.id).length,
           swagGiven: stamps.filter((s) => s.stall_id === st.id && s.swag_given).length,
         })),
       });
+    }),
+  );
+
+  const stationById = async (id: unknown) => {
+    const r = await pool.query("select * from stations where id=$1", [String(id)]);
+    if (!r.rows[0]) throw new HttpError(404, "No such station");
+    return r.rows[0] as Station;
+  };
+
+  // Login QR for a volunteer phone. The key sits in the #fragment, which browsers never send to the server or in Referer.
+  app.get(
+    "/api/admin/stations/:id/qr.svg",
+    adminAuth,
+    wrap(async (req, res) => svg(res, `${baseUrl(req)}/stall.html#k=${(await stationById(req.params.id)).secret}`)),
+  );
+
+  // Lost phone or leaked key: issue a new one. The old key stops working at once.
+  app.post(
+    "/api/admin/stations/:id/rotate",
+    adminAuth,
+    wrap(async (req, res) => {
+      const st = await stationById(req.params.id);
+      const secret = newSecret();
+      await pool.query("update stations set secret=$2 where id=$1", [st.id, secret]);
+      res.json({ id: st.id, secret });
     }),
   );
 
@@ -281,7 +288,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
     wrap(async (req, res) => {
       const a = await findAttendee(req.body?.code);
       const stallId = String(req.body?.stallId);
-      if (!cfg.stalls.some((s) => s.id === stallId)) throw new HttpError(400, "Unknown stall");
+      if (!stallIds.has(stallId)) throw new HttpError(400, "Unknown stall");
       if (req.body?.on === false) await pool.query("delete from stamps where attendee_id=$1 and stall_id=$2", [a.id, stallId]);
       else
         await pool.query(
@@ -307,12 +314,10 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
     adminAuth,
     wrap(async (_req, res) => {
       const attendees = (await pool.query("select * from attendees order by id")).rows as Attendee[];
-      const stamps = (await pool.query("select attendee_id, stall_id from stamps")).rows as {
-        attendee_id: number;
-        stall_id: string;
-      }[];
+      const stamps = (await pool.query("select attendee_id, stall_id from stamps")).rows as StampRow[];
       const head = ["code", "nickname", ...cfg.stalls.map((s) => s.id), "donut_claimed"];
-      const esc = (v: string) => (/^[=+\-@]/.test(v) ? `'${v}` : v).replace(/"/g, '""');
+      // Leading = + - @ tab or CR would make Excel run the cell as a formula.
+      const esc = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""');
       const lines = attendees.map((a) => {
         const mine = new Set(stamps.filter((s) => s.attendee_id === a.id).map((s) => s.stall_id));
         return [a.code, a.nickname ?? "", ...cfg.stalls.map((s) => (mine.has(s.id) ? "1" : "0")), a.donut_claimed_at ? "1" : "0"]

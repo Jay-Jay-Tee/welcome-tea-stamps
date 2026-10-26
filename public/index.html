@@ -53,11 +53,12 @@ const showErr = (m) => { $("err").textContent = m; $("err").hidden = !m; };
 
 async function loadCfg() {
   try { cfg = await api("/api/config"); store.set("cfg", JSON.stringify(cfg)); }
-  catch { cfg = JSON.parse(store.get("cfg") || "null"); }
-  if (!cfg) return;
+  catch { try { cfg = JSON.parse(store.get("cfg") || "null"); } catch { cfg = null; } }
+  if (!cfg) return false;
   $("title").textContent = cfg.name;
   $("when").textContent = [cfg.date, cfg.time, cfg.venue].filter((x) => x && x !== "TBC").join(" · ");
   $("need").textContent = cfg.reward.stampsRequired;
+  return true;
 }
 
 function render() {
@@ -85,10 +86,10 @@ async function refresh() {
     store.set("view:" + code, JSON.stringify(view));
     $("status").hidden = true;
   } catch (e) {
-    if (e.status === 404) { showErr("That card no longer exists."); store.del("code"); return; }
+    if (e.status === 404) { stop(); store.del("code"); $("card").hidden = true; $("start").hidden = false; showErr("No card with code " + code + ". Check it, or get a new card."); return; }
     $("status").hidden = false; $("status").className = "banner warn";
     $("status").textContent = "Can't reach the server. Showing your last saved card. It updates when wifi is back.";
-    view = view || JSON.parse(store.get("view:" + code) || "null");
+    if (!view) { try { view = JSON.parse(store.get("view:" + code) || "null"); } catch {} }
   }
   render();
 }
@@ -101,29 +102,32 @@ async function cacheQr() {
   } catch {}
 }
 
-function open(c) {
+const stop = () => { clearInterval(timer); timer = null; };
+// Poll only while the card is on screen. 200 phones every 6 seconds is about 33 requests a second, which is fine.
+function openCard(c) {
   code = c; store.set("code", c); showErr("");
   history.replaceState(null, "", location.pathname);
   refresh().then(cacheQr);
-  clearInterval(timer); timer = setInterval(refresh, 6000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  stop(); timer = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && timer) refresh(); });
 
 $("go").onclick = async () => {
   $("go").disabled = true;
-  try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); open(c.code); }
+  try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); openCard(c.code); }
   catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
   $("go").disabled = false;
 };
 $("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; };
-$("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) open(c); };
+$("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) openCard(c); };
 $("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { store.del("code"); location.reload(); } };
 
 (async () => {
-  await loadCfg();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if (!(await loadCfg())) { showErr("Can't reach the server. Check your wifi and reload."); return; }
   const fromHash = (location.hash.match(/c=([A-Za-z0-9]+)/) || [])[1];
   const saved = fromHash || store.get("code");
-  if (saved) open(saved.toUpperCase()); else $("start").hidden = false;
+  if (saved) openCard(saved.toUpperCase()); else $("start").hidden = false;
 })();
 </script>
 </body>

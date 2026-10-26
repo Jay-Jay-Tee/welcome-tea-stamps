@@ -4,8 +4,8 @@ import { makePool } from "./db.js";
 
 const isProd = process.env.NODE_ENV === "production";
 const adminPin = process.env.ADMIN_PIN ?? (isProd ? "" : "admin");
-if (!adminPin) {
-  console.error("ADMIN_PIN is not set. Add it in the Render dashboard under Environment.");
+if (isProd && adminPin.length < 12) {
+  console.error("ADMIN_PIN must be set and at least 12 characters. Add it in the Render dashboard under Environment.");
   process.exit(1);
 }
 

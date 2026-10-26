@@ -27,7 +27,7 @@
     <h2>Scan to get your stamp card</h2>
     <img id="q" alt="QR code to the stamp card">
     <p class="url" id="u"></p>
-    <p>Five stalls. Five stamps. One free donut.</p>
+    <p id="tag"></p>
   </div>
   <h2 class="noprint">Paper cards</h2>
   <div class="papers" id="papers"></div>
@@ -35,13 +35,15 @@
 <script>
 (async () => {
   const cfg = await (await fetch("/api/config")).json();
-  const url = location.origin + "/";
+  const url = location.origin + "/";  // must match what /api/entry-qr.svg encodes, so print from the live address
   document.getElementById("t").textContent = cfg.name;
   document.getElementById("u").textContent = url;
-  document.getElementById("q").src = "/api/qr.svg?text=" + encodeURIComponent(url);
+  document.getElementById("tag").textContent = [cfg.date, cfg.time, cfg.venue].join(" · ") + ". Get " + cfg.reward.stampsRequired + " stamps for a " + cfg.reward.label.toLowerCase() + ".";
+  document.getElementById("q").src = "/api/entry-qr.svg";
   const card = `<div class="paper"><div class="brand">${cfg.name}</div><div>Name: <div class="line"></div></div>
     <div class="boxes">${cfg.stalls.map((s) => `<div class="box">${s.name}</div>`).join("")}</div>
-    <div class="muted">${cfg.stalls.length} stamps = ${cfg.reward.label.toLowerCase()} at the ${cfg.reward.station.name}</div></div>`;
+    <div class="muted">${cfg.reward.stampsRequired} stamps = ${cfg.reward.label.toLowerCase()} at the ${cfg.reward.station.name}</div>
+    <div class="muted" style="margin-top:6px">Donut corner: cross out when used ______</div></div>`;
   document.getElementById("papers").innerHTML = card.repeat(8);
 })();
 </script>

@@ -1,30 +1,40 @@
 # Volunteer briefing: Welcome Tea stamps
 
-**One job:** stamp the card, hand over your stall's swag, tick the box.
+Wed 28 Oct, 3-6pm, COM3 MPH.
 
-## Setup (2 minutes)
-1. Open `https://stamps.nuscomputing.com/stall.html` on your phone. (Backup address: the onrender.com one on the admin page.)
-2. Type your stall PIN. The Tech Lead gives you this. Don't post it in a group chat.
-3. Tap **Start camera** and allow camera access.
+**Your job:** scan the card, hand over your stall's swag, tick the box.
+
+## Before doors open (2 minutes)
+1. Get your station's login QR from the Tech Lead. Scan it with your phone camera and open the link. Your station name appears at the top.
+2. Tap **Start camera** and allow camera access.
+3. Keep the page open. Don't share the login QR. Anyone with it can stamp as your stall.
 
 ## When someone comes to your stall
-1. They show their card. Point your camera at the QR code. It beeps into a green box that says **Stamped**.
-2. Hand over your stall's swag. Tick **Swag handed over**.
-3. Wrong person or wrong stall? Tap **Undo this stamp**.
+1. They show the QR on their card page. Point your camera at it.
+2. Green box that says **Stamped**: hand over your swag and tick **Swag handed over**.
+3. Tap **Next person**.
 
-If the box says **Already stamped here**, they visited before. Nothing to do. No double stamps, no harm.
+Orange **Already stamped here** means they visited before. Nothing to do. Nobody gets stamped twice.
+
+Stamped the wrong person? Tap **Undo this stamp**.
 
 ## Camera won't scan?
-Type the 8 character code under the QR code and tap Go.
+Type the 8 character code shown under their QR, then tap Go.
 
 ## Wifi is bad?
-Keep scanning. A scan with no wifi says **Saved**. It uploads itself when the connection returns. Tell the attendee they're fine.
+Keep scanning. When there's no connection the screen says **No wifi. Saved.** The stamp uploads itself once wifi is back, as long as the page stays open. Tell them they're fine.
 
 ## Wifi is completely dead?
-Use the paper cards. Stamp the right box by hand. The donut corner counts boxes and trusts a full paper card. Tell the Tech Lead.
+Switch to paper cards. Sign or stamp your stall's box by hand. Tell the Tech Lead.
 
 ## Donut corner only
-Use the donut corner PIN. Scan the card. Green **Give them a donut** means go. Red means they're not done or already collected. If it says **No more donuts**, say sorry and send them to a committee member.
+Log in with the donut corner QR, then scan the card.
+- **Give them a donut** (green): hand it over.
+- **Already collected** or **Not a full card yet** (red): no donut. Send them back to the stalls if they aren't done.
+- **No more donuts**: we ran out. Say sorry and point them to a committee member.
+- Paper card with every box filled: give a donut and cross out the "used" line.
 
-## Something broke
-Find the Tech Lead. Josh is the person with the laptop open.
+Gave a donut to the wrong card? Tap **Undo (wrong card)**.
+
+## Lost your phone or someone saw your QR?
+Tell the Tech Lead. They make a new key and your old login stops working.
