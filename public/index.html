@@ -10,6 +10,42 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
 <link rel="stylesheet" href="/style.css">
+<style>
+  /* Card screen fits one phone screen: smaller title, donut and stamps */
+  body.carding h1 { font-size: 1.6rem; }
+  body.carding .kicker { font-size: 1.05rem; }
+  body.carding .top { padding: 10px 0; margin-bottom: 6px; }
+  body.carding .card { margin: 12px 6px 16px 0; padding: 14px; }
+  body.carding .progress .donut { width: 96px; height: 96px; }
+  body.carding .slot .mark { width: 60px; }
+  body.carding .slot .mark svg { width: 28px; height: 28px; }
+  body.carding .slots { gap: 10px 8px; }
+  /* Button that opens the QR */
+  .qrbtn { display: flex; align-items: center; gap: 14px; width: calc(100% - 6px); text-align: left; background: #fff; color: var(--ink); padding: 10px 14px; position: relative; }
+  .qrbtn img { width: 56px; height: 56px; image-rendering: pixelated; flex: none; }
+  .qrbtn b { display: block; font-size: 1.15rem; color: var(--blue); }
+  .qrbtn small { font-family: Quicksand, system-ui, sans-serif; font-weight: 500; color: var(--muted); }
+  .qrbtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 3px 3px 0 var(--ink), 0 0 0 6px var(--sky); } }
+  .tip { position: relative; background: var(--ink); color: #fff; border-radius: 10px; padding: 10px 12px; margin: 10px 6px 0 0; font-size: .95rem; }
+  .tip::before { content: ""; position: absolute; top: -8px; left: 34px; border: 8px solid transparent; border-top: 0; border-bottom-color: var(--ink); }
+  .tip button { min-height: 36px; padding: 4px 12px; margin-top: 8px; background: #fff; color: var(--ink); box-shadow: none; }
+  /* Full-screen QR */
+  .sheet { position: fixed; inset: 0; z-index: 10; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); text-align: center; overflow-y: auto; }
+  .sheet h2 { font-size: 1.4rem; margin: 0 0 6px; }
+  .sheet p { margin: 0 0 12px; max-width: 360px; }
+  .sheet img { width: min(78vw, 52vh, 340px); height: auto; image-rendering: pixelated; margin: 6px 0 10px; }
+  .sheet button { min-width: 180px; margin-top: 14px; }
+  /* "Stamped!" moment, shown on top of everything when a stamp arrives */
+  .stamped { position: fixed; inset: 0; z-index: 20; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; overflow: hidden; animation: fadein .15s ease-out; }
+  .stamped .mark { width: 150px; height: 150px; border-radius: 50%; border: 3px solid var(--ink); background: var(--c); color: var(--k); display: flex; align-items: center; justify-content: center; box-shadow: 6px 6px 0 var(--ink); outline: 3px solid var(--k); outline-offset: -16px; --r: -8deg; transform: rotate(var(--r)); animation: thunk .5s cubic-bezier(.2, 1.4, .4, 1) both; }
+  .stamped h2 { font-size: 2.2rem; margin: 26px 0 4px; }
+  .stamped p { margin: 0; font-size: 1.1rem; }
+  .stamped .muted { margin-top: 18px; }
+  .stamped i { position: absolute; top: -20px; width: 10px; height: 16px; border-radius: 2px; animation: fall 1.6s ease-in forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(var(--spin)); } }
+  @keyframes fadein { from { opacity: 0; } }
+</style>
 </head>
 <body>
 <main>
@@ -48,18 +84,25 @@
         <div class="say"><h2 id="headline"></h2><p id="subline"></p></div>
       </div>
     </div>
+    <button id="qrOpen" class="qrbtn"><img id="qrThumb" alt=""><span><b>Show my QR</b><small>Tap this at each stall</small></span></button>
+    <div id="tip" class="tip" hidden>Your QR is here. Tap it whenever you're at a stall.<br><button id="tipOk">OK</button></div>
     <div class="card">
       <h2>Your stamps</h2>
       <ul class="slots" id="slots"></ul>
     </div>
-    <div class="card qr">
-      <p class="big">Show this at each stall</p>
-      <img id="qr" alt="Your stamp card QR code">
-      <div class="code" id="code"></div>
-      <p class="muted">Volunteers scan this QR code. Take a screenshot in case your connection drops. You can also use the code to open your card on another phone.</p>
-    </div>
     <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
   </section>
+
+  <div id="stamped" class="stamped" hidden></div>
+
+  <div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetHead">
+    <h2 id="sheetHead">Your QR</h2>
+    <p id="sheetText">Hold this up for the volunteer to scan.</p>
+    <img id="qr" alt="Your stamp card QR code">
+    <div class="code" id="code"></div>
+    <p class="muted" id="sheetNote">If the scan doesn't work, the volunteer can type this code. Keep it to open your card on another phone.</p>
+    <button id="sheetDone">Done</button>
+  </div>
   <p class="banner bad" id="err" hidden></p>
 </main>
 <script src="/icons.js"></script>
@@ -69,7 +112,7 @@ const store = { get: (k) => { try { return localStorage.getItem(k); } catch { re
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 // A fixed tilt per slot so filled stamps look hand-pressed but don't wobble between refreshes.
 const TILT = [-8, 5, -3, 7, -6, 4, -5, 6];
-let cfg = null, code = null, view = null, shown = null, timer = null;
+let cfg = null, code = null, view = null, shown = null, timer = null, firstDone = false, lastPoll = 0;
 
 const api = async (path, opts) => {
   const r = await fetch(path, opts);
@@ -105,7 +148,7 @@ function words(v) {
 function render() {
   $("start").hidden = true; $("card").hidden = false;
   $("code").textContent = code;
-  if (!$("qr").src) $("qr").src = store.get("qr:" + code) || "/api/qr/" + code + ".svg";
+  if (!$("qr").src) $("qr").src = $("qrThumb").src = store.get("qr:" + code) || "/api/qr/" + code + ".svg";
   if (!view) return;
   // Skip redraws when nothing changed, so animations only play for new stamps.
   const sig = JSON.stringify([view.stamps, view.donutClaimed, view.donutsOut]);
@@ -117,6 +160,9 @@ function render() {
   const colors = cfg.stalls.filter((s) => view.stamps.includes(s.id)).map((s) => s.color || "#365486");
   $("donut").innerHTML = Look.donut(n, need, colors, 128, Math.min(before.length, n));
   if (view.complete && before.length < need) $("donut").firstElementChild.classList.add("pop");
+  const added = cfg.stalls.filter((s) => view.stamps.includes(s.id) && !before.includes(s.id));
+  if (added.length && firstDone) celebrate(added[added.length - 1], n, need);
+  firstDone = true;
   const [h, sub] = words(view);
   $("headline").textContent = h; $("subline").textContent = sub;
 
@@ -154,9 +200,16 @@ const stop = () => { clearInterval(timer); timer = null; };
 // Poll only while the card is on screen. 200 phones every 6 seconds is about 33 requests a second, which is fine.
 function openCard(c) {
   code = c; store.set("code", c); showErr(""); shown = null; $("qr").removeAttribute("src");
+  document.body.classList.add("carding");
   history.replaceState(null, "", location.pathname);
   refresh().then(cacheQr);
-  stop(); timer = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
+  if (!store.get("seenIntro")) openSheet(true);
+  firstDone = false;
+  stop(); timer = setInterval(() => {
+    if (document.hidden) return;
+    const gap = $("sheet").hidden ? 6000 : 2000;
+    if (Date.now() - lastPoll >= gap) { lastPoll = Date.now(); refresh(); }
+  }, 1000);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && timer) refresh(); });
 
@@ -166,9 +219,52 @@ $("go").onclick = async () => {
   catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
   $("go").disabled = false;
 };
+// Full-screen QR. First time on this phone it explains itself, then points at the button.
+// Full-screen "Stamped!" so the attendee sees it even while holding up their QR.
+let popTimer = null;
+function celebrate(stall, n, need) {
+  if (!$("sheet").hidden) closeSheet();
+  const c = stall.color || "#365486";
+  const done = n >= need;
+  const confetti = Array.from({ length: 28 }, (_, i) => {
+    const colors = [c, "#f59bb8", "#e9b872", "#365486"];
+    return `<i style="left:${(i * 37) % 100}%;background:${colors[i % colors.length]};animation-delay:${(i % 7) * 0.07}s;--spin:${(i % 2 ? 1 : -1) * (180 + i * 23)}deg"></i>`;
+  }).join("");
+  $("stamped").innerHTML = `${confetti}
+    <div class="mark" style="--c:${c};--k:${Look.inkOn(c)}">${Look.icon(stall.icon, 70, "currentColor", 2)}</div>
+    <h2>${done ? "Card complete!" : "Stamped!"}</h2>
+    <p>${esc(stall.name)} · ${n} of ${need}</p>
+    <p class="muted">${done ? `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.` : "Tap to close"}</p>`;
+  $("stamped").hidden = false;
+  try { navigator.vibrate && navigator.vibrate(done ? [80, 60, 80, 60, 160] : [60, 40, 120]); } catch {}
+  clearTimeout(popTimer);
+  popTimer = setTimeout(() => { $("stamped").hidden = true; }, done ? 6000 : 3000);
+}
+$("stamped").onclick = () => { clearTimeout(popTimer); $("stamped").hidden = true; };
+
+function openSheet(intro) {
+  $("sheetHead").textContent = intro ? "This is your stamp card QR" : "Your QR";
+  $("sheetText").textContent = intro
+    ? "At each stall, show this to the volunteer. They scan it and you get that stall's stamp."
+    : "Hold this up for the volunteer to scan.";
+  $("sheetDone").textContent = intro ? "Got it" : "Done";
+  $("sheet").dataset.intro = intro ? "1" : "";
+  $("sheet").hidden = false;
+}
+function closeSheet() {
+  const wasIntro = $("sheet").dataset.intro === "1";
+  $("sheet").hidden = true;
+  if (wasIntro) { store.set("seenIntro", "1"); $("tip").hidden = false; $("qrOpen").classList.add("pulse"); }
+}
+const clearTip = () => { $("tip").hidden = true; $("qrOpen").classList.remove("pulse"); };
+$("qrOpen").onclick = () => { clearTip(); openSheet(false); };
+$("sheetDone").onclick = closeSheet;
+$("tipOk").onclick = clearTip;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
+
 $("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; $("codeIn").focus(); };
 $("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) openCard(c); };
-$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { stop(); store.del("code"); location.reload(); } };
+$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { stop(); store.del("code"); store.del("seenIntro"); location.reload(); } };
 
 (async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
