@@ -47,7 +47,7 @@ Start the paid instances a day or two before the event.
 
 ## On the day
 - Volunteers scan their station's login QR from the admin page (QR button) or from a printed copy.
-- When donuts run out, press **Mark donuts as finished**. Full cards then show a message and the donut corner can't give out more. Press **Donuts are available again** to undo.
+- When donuts run out, press **Mark donuts as finished**. Attendees see a message at every stamp stage, and the donut corner can't give out more. Press **Donuts are available again** to undo.
 - A card someone can't scan: fix it under "Fix a card" with the attendee's code.
 
 ## Reset

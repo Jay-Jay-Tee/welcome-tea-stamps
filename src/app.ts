@@ -94,9 +94,10 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     res.type("image/svg+xml").send(await QRCode.toString(text, { type: "svg", margin: 1, errorCorrectionLevel: "M" }));
 
   // ---- public: attendee ----
-  app.get("/api/config", (_req, res) => {
-    res.json({ name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue, stalls: cfg.stalls, reward: cfg.reward, links: cfg.links });
-  });
+  app.get("/api/config", wrap(async (_req, res) => {
+    res.json({ name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue, stalls: cfg.stalls, reward: cfg.reward, links: cfg.links,
+      donutsOut: (await getSetting("donuts_out")) === "1" });
+  }));
 
   app.post(
     "/api/cards",

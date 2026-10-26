@@ -73,7 +73,7 @@ async function load() {
   $("stats").innerHTML = [["Cards", stats.attendees], ["Stamps", stats.stamps], ["Full cards", stats.completed], ["Donuts given", stats.donutsGiven]]
     .map(([k, v]) => `<span class="stat"><b>${v}</b>${k}</span>`).join("");
   $("donutBanner").className = "banner " + (stats.donutsOut ? "bad" : "ok");
-  $("donutBanner").textContent = stats.donutsOut ? "Donuts are marked as finished. Full cards show a message, and the donut corner can't give out more." : "Donuts are available.";
+  $("donutBanner").textContent = stats.donutsOut ? "Donuts are marked as finished. All attendee screens show a message, and the donut corner can't give out more." : "Donuts are available.";
   $("toggle").textContent = stats.donutsOut ? "Donuts are available again" : "Mark donuts as finished";
   $("tbl").innerHTML = "<tr><th>Station</th><th>Stamps</th><th>Swag</th><th>Login</th></tr>" + stats.stations.map((s) => `<tr>
       <td>${esc(s.name)}${showKeys ? `<br><span class="key">${esc(s.secret)}</span>` : ""}</td>

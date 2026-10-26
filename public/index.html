@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ffffff">
 <title>Welcome Tea Stamp Card</title>
-<link rel="icon" href="/logo.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
@@ -62,6 +62,7 @@
   <p class="kicker" id="kicker">Stamp card</p>
   <h1 id="title">Welcome Tea</h1>
   <p class="muted" id="when"></p>
+  <p class="banner bad" id="donutsNotice" hidden>Sorry, the donuts have run out. You can still collect stamps; ask a committee member about the reward.</p>
 
   <section id="start" hidden>
     <div class="card">
@@ -108,6 +109,7 @@
   <div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetHead">
     <h2 id="sheetHead">Your QR</h2>
     <p id="sheetText">Hold this up for the volunteer to scan.</p>
+    <p class="banner bad" id="sheetOut" hidden>Sorry, the donuts have run out. You can still collect stamps; ask a committee member about the reward.</p>
     <img id="qr" alt="Your stamp card QR code">
     <div class="code" id="code"></div>
     <p class="muted" id="sheetNote">If the scan doesn't work, the volunteer can type this code. Keep it to open your card on another phone.</p>
@@ -131,6 +133,16 @@ const api = async (path, opts) => {
   return j;
 };
 const showErr = (m) => { $("err").textContent = m; $("err").hidden = !m; };
+function showDonutsOut(out) {
+  cfg.donutsOut = !!out;
+  $("donutsNotice").hidden = !out;
+  $("sheetOut").hidden = !out;
+  const momentOut = $("momentOut");
+  if (momentOut) momentOut.hidden = !out;
+  $("startBody").textContent = out
+    ? "Each wing has a stall. You can still collect stamps, but the donuts have run out. Ask a committee member about the reward."
+    : "Each wing has a stall. Get a stamp at every stall and you get a free donut. You don't need to download anything or sign up.";
+}
 
 async function loadCfg() {
   try { cfg = await api("/api/config"); store.set("cfg", JSON.stringify(cfg)); }
@@ -149,6 +161,7 @@ async function loadCfg() {
     for (const id of ["links", "linksStart"]) { $(id).innerHTML = html; $(id).hidden = false; }
   }
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
+  showDonutsOut(cfg.donutsOut);
   return true;
 }
 
@@ -157,7 +170,9 @@ function words(v) {
   const n = v.stamps.length, need = v.stampsRequired, left = need - n;
   const corner = cfg.reward.station.name.toLowerCase();
   if (v.donutClaimed) return ["You got your donut", "Thanks for coming to the Welcome Tea."];
-  if (v.complete && v.donutsOut) return ["Card complete", "Sorry, the donuts have run out. Look for a committee member and we'll sort something out."];
+  if (v.donutsOut) return ["Donuts have run out", v.complete
+    ? "Your card is complete. Ask a committee member about the reward."
+    : `You have ${n} of ${need} stamps. You can still collect stamps; ask a committee member about the reward.`];
   if (v.complete) return ["Card complete", `Show this screen at the ${corner} to get your donut.`];
   if (n === 0) return ["No stamps yet", `Visit each stall and show your QR code. You need ${need} stamps for a donut.`];
   if (left === 1) return ["1 stamp left", `Get your last stamp, then go to the ${corner}.`];
@@ -198,6 +213,7 @@ function render() {
 async function refresh() {
   try {
     view = await api("/api/cards/" + code);
+    showDonutsOut(view.donutsOut);
     store.set("view:" + code, JSON.stringify(view));
     $("status").hidden = true;
   } catch (e) {
@@ -235,6 +251,11 @@ function openCard(c, intro = false) {
   }, 1000);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && timer) refresh(); });
+// The start screen has no card to poll, so read the current stock status separately.
+setInterval(() => {
+  if (document.hidden || $("start").hidden) return;
+  api("/api/config").then((fresh) => { if (!$("start").hidden) showDonutsOut(fresh.donutsOut); }).catch(() => {});
+}, 6000);
 
 $("go").onclick = async () => {
   $("go").disabled = true;
@@ -252,7 +273,8 @@ function showMoment(markHtml, title, line, note, colors, ms, buzz, then = null) 
   nextMoment = then;
   const confetti = Array.from({ length: 28 }, (_, i) =>
     `<i style="left:${(i * 37) % 100}%;background:${colors[i % colors.length]};animation-delay:${(i % 7) * 0.07}s;--spin:${(i % 2 ? 1 : -1) * (180 + i * 23)}deg"></i>`).join("");
-  $("stamped").innerHTML = `${confetti}${markHtml}<h2>${title}</h2><p>${line}</p><p class="muted">${note}</p>`;
+  $("stamped").innerHTML = `${confetti}${markHtml}<h2>${title}</h2><p>${line}</p><p class="muted">${note}</p>` +
+    `<p class="banner bad" id="momentOut" ${cfg.donutsOut ? "" : "hidden"}>Sorry, the donuts have run out. Ask a committee member about the reward.</p>`;
   $("stamped").hidden = false;
   try { navigator.vibrate && navigator.vibrate(buzz); } catch {}
   clearTimeout(popTimer);
@@ -282,7 +304,7 @@ function celebrate(stall, n, need) {
   const mark = `<div class="mark" style="--c:${c};--k:${Look.inkOn(c)}">${Look.icon(stall.icon, 70, "currentColor", 2)}</div>`;
   // Last stamp: show that stall's stamp first, then the donut, back to back.
   const complete = () => showMoment(fullDonut(false), "Card complete!", `All ${need} stamps collected.`,
-    `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.`,
+    cfg.donutsOut ? "Ask a committee member about the reward." : `Go to the ${esc(cfg.reward.station.name.toLowerCase())} for your donut.`,
     ["#f59bb8", "#e9b872", ...cfg.stalls.map((s) => s.color || "#365486")], 6000, [80, 60, 80, 60, 160]);
   showMoment(mark, "Stamped!", `${esc(stall.name)} · ${n} of ${need}`, done ? "Tap to continue" : "Tap to close",
     [c, "#f59bb8", "#e9b872", "#365486"], done ? 2200 : 3000, [60, 40, 120], done ? complete : null);
