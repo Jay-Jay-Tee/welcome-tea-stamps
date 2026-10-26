@@ -25,9 +25,7 @@ Volunteer handout: `docs/volunteer-briefing.md`.
 Everything event-specific lives in `config/event.json`: name, date, time, venue, stalls (with an icon and colour each), the reward and how many stamps it needs. Icons are drawn in `public/icons.js`: crown, people, globe, party, sprout, donut, star. Add more there. The server refuses to start if the config can't work, for example if it needs more stamps than there are stalls. Restart after editing. New stalls get keys automatically. Removed stalls lose their keys and their old stamps stop counting.
 
 ## Where it runs
-Render, as two new services in Singapore: a web service and a Postgres database, both on the **free** plan (no card needed). The Club website's service is untouched. Postgres only accepts connections from inside Render.
-
-Free-plan catches: the web service sleeps after 15 minutes with no visitors, and the first visit after that takes about a minute, so open the site 5 minutes before doors open (open card pages keep it awake after that). The free database is deleted after 30 days. For a longer run, switch the plans in `render.yaml` to `starter` and `basic-256mb` (paid, about USD 13 a month together) and use the Club's Render workspace.
+Render, in the existing Computing Club workspace, as two new services in Singapore: a Starter web service and a basic Postgres. The Club website's service is untouched. Postgres only accepts connections from inside Render. Confirm prices on Render's pricing page, since the figures we have came from third-party summaries.
 
 Repo: to be pushed to the NUSComputingDev GitHub org.
 
@@ -45,7 +43,7 @@ Repo: to be pushed to the NUSComputingDev GitHub org.
 6. Test one phone of each kind (iOS Safari, Android Chrome): get a card, log in a station from its QR, stamp, redeem, undo. Then use **Wipe all cards and stamps**.
 7. Optional custom domain `stamps.nuscomputing.com`: add it in the Render service settings, add a CNAME in Cloudflare set to DNS only, and set `PUBLIC_URL`. The Hobby plan includes 2 custom domains, and we don't know if the website's apex and www already use both. The onrender.com address works fine without it.
 
-Create it a day or two before the event, and test it there.
+Start the paid instances a day or two before the event.
 
 ## On the day
 - Volunteers scan their station's login QR from the admin page (QR button) or from a printed copy.
