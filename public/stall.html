@@ -4,11 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stall screen</title>
+<link rel="icon" href="/logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
 <link rel="stylesheet" href="/style.css">
+<style>
+  .badge { display: flex; align-items: center; gap: 12px; border: 2px solid var(--ink); border-radius: 14px; padding: 10px 12px; background: var(--c); color: var(--k); box-shadow: 4px 4px 0 var(--ink); margin: 6px 4px 16px 0; }
+  .badge b { font-family: "DM Sans", system-ui, sans-serif; font-size: 1.25rem; }
+  .badge small { display: block; opacity: .85; font-weight: 500; }
+  #result { border: 2px solid var(--ink); border-radius: 16px; padding: 16px; margin: 16px 6px 16px 0; box-shadow: 6px 6px 0 var(--blue); background: #fff; }
+  #result.ok { box-shadow: 6px 6px 0 var(--ok); }
+  #result.warn { box-shadow: 6px 6px 0 var(--warn); background: #fffaf2; }
+  #result.bad { box-shadow: 6px 6px 0 var(--bad); background: #fff6f5; }
+  /* Rubber stamp: readable from arm's length in a loud hall */
+  .ink { display: inline-block; font-family: "DM Sans", system-ui, sans-serif; font-weight: 700; font-size: 2.2rem; letter-spacing: .08em; text-transform: uppercase; color: var(--c); border: 4px solid var(--c); outline: 2px solid var(--c); outline-offset: 3px; border-radius: 10px; padding: 2px 14px; transform: rotate(-4deg); margin: 6px 0 12px; animation: thunk .4s cubic-bezier(.2, 1.4, .4, 1) both; --r: -4deg; }
+  .ink.warn { color: var(--warn); border-color: var(--warn); outline-color: var(--warn); }
+  .ink.bad { color: var(--bad); border-color: var(--bad); outline-color: var(--bad); }
+  .swag { display: flex; align-items: center; gap: 10px; font-family: "DM Sans", system-ui, sans-serif; font-weight: 700; font-size: 1.15rem; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--tint); }
+  .swag input { width: 26px; height: 26px; accent-color: var(--ok); }
+  video { width: 100%; border-radius: 14px; border: 2px solid var(--ink); background: #000; max-height: 36vh; object-fit: cover; display: block; }
+</style>
 </head>
 <body>
 <main>
-  <div class="brand">Volunteer screen</div>
+  <header class="top"><img src="/logo.png" alt=""><span>Welcome Tea<br>Volunteer screen</span></header>
 
   <section id="login" hidden>
     <h1>Log in your station</h1>
@@ -19,7 +37,7 @@
   </section>
 
   <section id="work" hidden>
-    <h1 id="who"></h1>
+    <div id="badge" class="badge"></div>
     <p class="banner warn" id="queueNote" hidden></p>
     <video id="video" playsinline muted hidden></video>
     <canvas id="canvas" hidden></canvas>
@@ -34,13 +52,14 @@
   </section>
 </main>
 <script src="/vendor/jsqr.js"></script>
+<script src="/icons.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
 // Anything that came from an attendee (nickname) goes through esc() before touching innerHTML.
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const clean = (s) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-const CODE_RE = /^[A-HJKMNP-Z2-9]{8}$/;
+const CODE_RE = /^[B-DF-HJKMNP-TV-Z25-9]{8}$/; // same alphabet as src/codes.ts
 
 let key = null, me = null, lastCode = "", busy = false;
 
@@ -50,7 +69,8 @@ const post = async (path, body) => {
   if (!r.ok) throw Object.assign(new Error(j.error || "Request failed"), { status: r.status });
   return j;
 };
-const show = (cls, html) => { const r = $("result"); r.hidden = false; r.className = "banner " + cls; r.innerHTML = html; };
+const show = (cls, html) => { const r = $("result"); r.hidden = false; r.className = cls; r.innerHTML = html; };
+const ink = (cls, text) => `<div class="ink ${cls}">${text}</div>`;
 const buzz = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
 const nextBtn = `<div class="row"><button id="next" class="ghost">Next person</button></div>`;
 const wireNext = () => { if ($("next")) $("next").onclick = () => { lastCode = ""; $("result").hidden = true; }; };
@@ -100,9 +120,9 @@ async function stamp(code) {
   const who = r.nickname ? esc(r.nickname) : "Code " + esc(code);
   buzz(r.result === "stamped" ? 80 : [60, 60, 60]);
   show(r.result === "stamped" ? "ok" : "warn",
-    `<p class="big">${r.result === "stamped" ? "Stamped" : "Already stamped here"}</p>
-     <p>${who}: ${r.count} of ${r.stampsRequired} stamps.</p>
-     <label class="big"><input type="checkbox" id="swag" ${r.swagGiven ? "checked" : ""}> Swag handed over</label>
+    (r.result === "stamped" ? ink("", "Stamped") : ink("warn", "Been here") + `<p class="big">Already stamped at this stall</p>`) +
+    `<p>${who}: <b>${r.count} of ${r.stampsRequired}</b> stamps.</p>
+     <label class="swag"><input type="checkbox" id="swag" ${r.swagGiven ? "checked" : ""}> Swag handed over</label>
      <div class="row"><button id="undo" class="danger">Undo this stamp</button></div>` + nextBtn);
   $("swag").onchange = (e) => post("/api/station/swag", { code, given: e.target.checked })
     .catch(() => { e.target.checked = !e.target.checked; alert("Couldn't save the tick. Try again."); });
@@ -121,7 +141,7 @@ async function redeem(code) {
     out: ["warn", "No more donuts", "The donut switch is set to out. Send them to a committee member."],
   }[r.result];
   buzz(r.result === "redeemed" ? 80 : [60, 60, 60]);
-  show(cls, `<p class="big">${title}</p><p>${body}</p>` +
+  show(cls, ink(cls === "ok" ? "" : cls, r.result === "redeemed" ? "Donut!" : r.result === "out" ? "All gone" : "Nope") + `<p class="big">${title}</p><p>${body}</p>` +
     (r.result === "redeemed" ? `<div class="row"><button id="undo" class="danger">Undo (wrong card)</button></div>` : "") + nextBtn);
   if ($("undo")) $("undo").onclick = async () => {
     try { await post("/api/station/unredeem", { code }); show("warn", `<p class="big">Claim removed</p><p>${esc(code)} can collect again.</p>` + nextBtn); wireNext(); }
@@ -174,7 +194,11 @@ async function start(k) {
     if (!me) { $("login").hidden = false; $("loginErr").hidden = false; $("loginErr").textContent = "No wifi, and this phone hasn't logged in before. Try again when connected."; return; }
   }
   $("login").hidden = true; $("work").hidden = false;
-  $("who").textContent = me.name + (me.kind === "donut" ? " (donuts)" : "");
+  const c = me.color || "#365486";
+  $("badge").style.cssText = `--c:${c};--k:${Look.inkOn(c)}`;
+  $("work").style.setProperty("--c", Look.readable(c));
+  $("badge").innerHTML = `${Look.icon(me.icon, 36, "currentColor", 2.2)}<div><b></b><small>${me.kind === "donut" ? "Scan full cards, hand out donuts" : "Scan, hand over swag, tick the box"}</small></div>`;
+  $("badge").querySelector("b").textContent = me.name;
   saveQueue(queue()); flush();
 }
 

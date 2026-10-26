@@ -5,13 +5,10 @@ import crypto from "node:crypto";
 import path from "node:path";
 import type { EventConfig } from "./config.js";
 import { migrate } from "./db.js";
+import { CODE_RE, KEY_RE, randomCode } from "./codes.js";
 
-// No 0/O/1/I/L so a code read off paper survives a bad squint.
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-const randomCode = (len: number) => Array.from({ length: len }, () => ALPHABET[crypto.randomInt(ALPHABET.length)]).join("");
-const CODE_RE = /^[A-HJKMNP-Z2-9]{8}$/;
 const cleanCode = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-// Station keys are 16 characters (about 79 bits), so guessing one over the network is hopeless and no rate limit is needed.
+// Station keys are 16 characters (about 75 bits), so guessing one over the network is hopeless and no rate limit is needed.
 const newSecret = () => randomCode(16);
 
 type Station = { id: string; name: string; kind: "stall" | "donut"; secret: string; sort: number };
@@ -138,7 +135,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
   // ---- stations (volunteers) ----
   const stationFor = async (req: Request): Promise<Station> => {
     const secret = cleanCode(req.header("x-key"));
-    const r = secret.length === 16 ? await pool.query("select * from stations where secret=$1", [secret]) : { rows: [] };
+    const r = KEY_RE.test(secret) ? await pool.query("select * from stations where secret=$1", [secret]) : { rows: [] };
     if (!r.rows[0]) throw new HttpError(401, "That station key doesn't work. Ask the Tech Lead for a new one.");
     return r.rows[0];
   };
@@ -154,7 +151,8 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
     "/api/station/me",
     wrap(async (req, res) => {
       const st = await stationFor(req);
-      res.json({ id: st.id, name: st.name, kind: st.kind });
+      const look = [...cfg.stalls, cfg.reward.station].find((s) => s.id === st.id);
+      res.json({ id: st.id, name: st.name, kind: st.kind, icon: look?.icon, color: look?.color });
     }),
   );
 

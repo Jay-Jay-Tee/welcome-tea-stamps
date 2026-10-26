@@ -3,45 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
 <title>Welcome Tea Stamp Card</title>
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
-  <div class="brand">NUS Students' Computing Club</div>
+  <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span></header>
+
+  <p class="kicker" id="kicker">Welcome to the</p>
   <h1 id="title">Welcome Tea</h1>
   <p class="muted" id="when"></p>
 
   <section id="start" hidden>
-    <p>Visit every stall, get a stamp at each one, and collect a free donut. No account, no app.</p>
-    <label for="nick" class="muted">Nickname (optional, helps if you lose your phone)</label>
-    <input id="nick" type="text" maxlength="30" autocomplete="off">
-    <div class="row"><button id="go">Get my card</button></div>
-    <p class="muted">Already have a code? <a href="#" id="haveCode">Type it in</a></p>
-    <div id="recover" hidden>
-      <div class="row"><input id="codeIn" type="text" placeholder="8 character code" autocapitalize="characters" autocomplete="off"><button id="codeGo" class="ghost">Open</button></div>
+    <div class="card">
+      <div class="progress">
+        <div id="startDonut"></div>
+        <div class="say">
+          <h2 id="startHead">Get stamped. Get a donut.</h2>
+          <p>Get stamped at every wing's stall and the donut is yours. No app, no sign up.</p>
+        </div>
+      </div>
+      <div class="row" style="display:block">
+        <label for="nick" class="muted">Nickname (optional, so volunteers know it's you)</label>
+        <input id="nick" type="text" maxlength="30" autocomplete="off">
+      </div>
+      <div class="row"><button id="go">Get my stamp card</button></div>
+      <p class="muted" style="margin:0">Had a card before? <a href="#" id="haveCode">Type your code</a></p>
+      <div id="recover" hidden>
+        <div class="row"><input id="codeIn" type="text" placeholder="8 character code" autocapitalize="characters" autocomplete="off" spellcheck="false"><button id="codeGo" class="ghost">Open</button></div>
+      </div>
     </div>
   </section>
 
   <section id="card" hidden>
-    <div id="status" class="banner" hidden></div>
-    <h2><span id="count">0</span> of <span id="need">5</span> stamps</h2>
-    <div class="slots" id="slots"></div>
-    <div id="donut" class="banner" hidden></div>
-    <div class="qrbox">
-      <p class="big" style="margin:4px 0">Show this at each stall</p>
-      <img id="qr" alt="Your stamp code">
-      <div class="code" id="code"></div>
-      <p class="muted">Volunteers scan it. Screenshot it as a backup. Keep this code if you ever need to reopen your card.</p>
+    <div id="status" class="banner warn" hidden></div>
+    <div class="card">
+      <div class="progress">
+        <div id="donut"></div>
+        <div class="say"><h2 id="headline"></h2><p id="subline"></p></div>
+      </div>
     </div>
-    <p class="muted"><a href="#" id="forget">Not my card, start over</a></p>
+    <div class="card">
+      <h2>Your stamps</h2>
+      <ul class="slots" id="slots"></ul>
+    </div>
+    <div class="card qr">
+      <p class="big">Show this at each stall</p>
+      <img id="qr" alt="Your stamp card QR code">
+      <div class="code" id="code"></div>
+      <p class="muted">The volunteer scans it. Screenshot this as a backup, and keep the code to reopen your card on another phone.</p>
+    </div>
+    <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
   </section>
   <p class="banner bad" id="err" hidden></p>
 </main>
+<script src="/icons.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
-let cfg = null, code = null, view = null, timer = null;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// A fixed tilt per slot so filled stamps look hand-pressed but don't wobble between refreshes.
+const TILT = [-8, 5, -3, 7, -6, 4, -5, 6];
+let cfg = null, code = null, view = null, shown = null, timer = null;
 
 const api = async (path, opts) => {
   const r = await fetch(path, opts);
@@ -57,27 +85,47 @@ async function loadCfg() {
   if (!cfg) return false;
   $("title").textContent = cfg.name;
   $("when").textContent = [cfg.date, cfg.time, cfg.venue].filter((x) => x && x !== "TBC").join(" · ");
-  $("need").textContent = cfg.reward.stampsRequired;
+  $("startDonut").innerHTML = Look.donut(0, cfg.reward.stampsRequired, [], 128);
+  const num = (n) => ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"][n] || String(n);
+  $("startHead").textContent = `${num(cfg.stalls.length)} stalls. One donut.`;
   return true;
+}
+
+// Draft copy. Short, a bit cheeky, no exclamation-mark overload.
+function words(v) {
+  const n = v.stamps.length, need = v.stampsRequired, left = need - n;
+  if (v.donutClaimed) return ["Donut acquired.", "Hope it was a good one. Thanks for coming by!"];
+  if (v.complete && v.donutsOut) return ["Full card!", "The donuts ran out, sorry. Find a committee member and we'll sort you out."];
+  if (v.complete) return ["Donut unlocked.", `Show this screen at the ${cfg.reward.station.name}. Go before it gets eaten.`];
+  if (n === 0) return ["Your card is ready.", `Get stamped at all ${need} stalls. ${need} stamps, 1 free donut.`];
+  if (left === 1) return ["One more.", "You can almost smell the donut."];
+  return [`${n} down, ${left} to go.`, "Keep going. The donut is waiting."];
 }
 
 function render() {
   $("start").hidden = true; $("card").hidden = false;
   $("code").textContent = code;
-  const qr = store.get("qr:" + code);
-  if (qr) $("qr").src = qr; else $("qr").src = "/api/qr/" + code + ".svg";
-  $("count").textContent = view ? view.stamps.length : 0;
-  $("slots").innerHTML = cfg.stalls.map((s) => {
-    const on = view && view.stamps.includes(s.id);
-    return `<div class="slot ${on ? "on" : ""}"><div class="tick">${on ? "&#10003;" : "&nbsp;"}</div>${s.name}</div>`;
+  if (!$("qr").src) $("qr").src = store.get("qr:" + code) || "/api/qr/" + code + ".svg";
+  if (!view) return;
+  // Skip redraws when nothing changed, so animations only play for new stamps.
+  const sig = JSON.stringify([view.stamps, view.donutClaimed, view.donutsOut]);
+  if (sig === shown) return;
+  const before = shown ? JSON.parse(shown)[0] : view.stamps;
+  shown = sig;
+
+  const need = view.stampsRequired, n = Math.min(view.stamps.length, need);
+  const colors = cfg.stalls.filter((s) => view.stamps.includes(s.id)).map((s) => s.color || "#365486");
+  $("donut").innerHTML = Look.donut(n, need, colors, 128, Math.min(before.length, n));
+  if (view.complete && before.length < need) $("donut").firstElementChild.classList.add("pop");
+  const [h, sub] = words(view);
+  $("headline").textContent = h; $("subline").textContent = sub;
+
+  $("slots").innerHTML = cfg.stalls.map((s, i) => {
+    const on = view.stamps.includes(s.id), fresh = on && !before.includes(s.id);
+    const c = s.color || "#365486";
+    return `<li class="slot ${on ? "on" : ""} ${fresh ? "fresh" : ""}" style="--c:${c};--k:${Look.inkOn(c)};--r:${TILT[i % TILT.length]}deg">
+      <div class="mark">${Look.icon(s.icon, 34, "currentColor", 2)}</div>${esc(s.name)}</li>`;
   }).join("");
-  const d = $("donut"); d.hidden = true; d.className = "banner";
-  if (view) {
-    if (view.donutClaimed) { d.hidden = false; d.className = "banner ok"; d.textContent = "Donut collected. Enjoy it."; }
-    else if (view.complete && view.donutsOut) { d.hidden = false; d.className = "banner warn"; d.textContent = "Full card! The donut corner says no more donuts though. So sorry. Find a committee member and we will sort something out."; }
-    else if (view.complete) { d.hidden = false; d.className = "banner ok"; d.textContent = "Full card! Head to the " + cfg.reward.station.name + " and show this screen for your free donut."; }
-    else { d.hidden = false; d.textContent = (view.stampsRequired - view.stamps.length) + " more stamp" + (view.stampsRequired - view.stamps.length === 1 ? "" : "s") + " to go for a free donut."; }
-  }
 }
 
 async function refresh() {
@@ -87,8 +135,8 @@ async function refresh() {
     $("status").hidden = true;
   } catch (e) {
     if (e.status === 404) { stop(); store.del("code"); $("card").hidden = true; $("start").hidden = false; showErr("No card with code " + code + ". Check it, or get a new card."); return; }
-    $("status").hidden = false; $("status").className = "banner warn";
-    $("status").textContent = "Can't reach the server. Showing your last saved card. It updates when wifi is back.";
+    $("status").hidden = false;
+    $("status").textContent = "Can't reach the server. Showing your last saved card. It updates when the wifi is back.";
     if (!view) { try { view = JSON.parse(store.get("view:" + code) || "null"); } catch {} }
   }
   render();
@@ -98,14 +146,14 @@ async function cacheQr() {
   if (store.get("qr:" + code)) return;
   try {
     const svg = await (await fetch("/api/qr/" + code + ".svg")).text();
-    store.set("qr:" + code, "data:image/svg+xml;utf8," + encodeURIComponent(svg));
+    if (svg.startsWith("<svg")) store.set("qr:" + code, "data:image/svg+xml;utf8," + encodeURIComponent(svg));
   } catch {}
 }
 
 const stop = () => { clearInterval(timer); timer = null; };
 // Poll only while the card is on screen. 200 phones every 6 seconds is about 33 requests a second, which is fine.
 function openCard(c) {
-  code = c; store.set("code", c); showErr("");
+  code = c; store.set("code", c); showErr(""); shown = null; $("qr").removeAttribute("src");
   history.replaceState(null, "", location.pathname);
   refresh().then(cacheQr);
   stop(); timer = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
@@ -118,9 +166,9 @@ $("go").onclick = async () => {
   catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
   $("go").disabled = false;
 };
-$("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; };
+$("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; $("codeIn").focus(); };
 $("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) openCard(c); };
-$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { store.del("code"); location.reload(); } };
+$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { stop(); store.del("code"); location.reload(); } };
 
 (async () => {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

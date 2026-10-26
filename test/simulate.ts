@@ -3,6 +3,16 @@ import type { AddressInfo } from "node:net";
 import { createApp } from "../src/app.js";
 import { loadConfig, validateConfig } from "../src/config.js";
 import { makePool } from "../src/db.js";
+import { ALPHABET, CODE_RE, isClean, randomCode } from "../src/codes.js";
+
+// Codes: right alphabet, never rude. 100k samples.
+for (let i = 0; i < 100_000; i++) {
+  const c = randomCode(8);
+  assert.ok(CODE_RE.test(c) && isClean(c), `bad code ${c}`);
+}
+assert.ok(!/[AEIOUL0134]/.test(ALPHABET), "no vowels or vowel lookalikes");
+for (const bad of ["XFCKXXXX", "BTCH2222", "B7CHZZZZ", "ZZ69ZZZZ", "SH7ZZZZZ", "5HTBBBBB"]) assert.equal(isClean(bad), false, bad);
+assert.equal(isClean("FCWD8BYQ"), true);
 
 const cfg = loadConfig();
 const pool = await makePool();
@@ -24,7 +34,7 @@ const stats = (await call("GET", "/api/admin/stats", undefined, admin)).body;
 const pins: Record<string, string> = Object.fromEntries(stats.stations.map((s: any) => [s.id, s.secret]));
 const donutPin = pins[cfg.reward.station.id];
 assert.equal(new Set(Object.values(pins)).size, cfg.stalls.length + 1, "every station has its own key");
-assert.ok(Object.values(pins).every((k) => /^[A-Z2-9]{16}$/.test(k)), "keys are 16 characters");
+assert.ok(Object.values(pins).every((k) => /^[B-DF-HJKMNP-TV-Z25-9]{16}$/.test(k) && isClean(k)), "keys are 16 clean characters");
 const N = 200;
 const need = cfg.reward.stampsRequired;
 

@@ -22,7 +22,7 @@ npm test           # 200 simulated attendees plus the safety checks, a few secon
 Volunteer handout: `docs/volunteer-briefing.md`.
 
 ## Changing the event
-Everything event-specific lives in `config/event.json`: name, date, time, venue, stalls, the reward and how many stamps it needs. The server refuses to start if the config can't work, for example if it needs more stamps than there are stalls. Restart after editing. New stalls get keys automatically. Removed stalls lose their keys and their old stamps stop counting.
+Everything event-specific lives in `config/event.json`: name, date, time, venue, stalls (with an icon and colour each), the reward and how many stamps it needs. Icons are drawn in `public/icons.js`: crown, people, globe, party, sprout, donut, star. Add more there. The server refuses to start if the config can't work, for example if it needs more stamps than there are stalls. Restart after editing. New stalls get keys automatically. Removed stalls lose their keys and their old stamps stop counting.
 
 ## Where it runs
 Render, in the existing Computing Club workspace, as two new services in Singapore: a Starter web service and a basic Postgres. The Club website's service is untouched. Postgres only accepts connections from inside Render. Confirm prices on Render's pricing page, since the figures we have came from third-party summaries.
@@ -59,6 +59,12 @@ Start the paid instances a day or two before the event.
 - **No wifi at all:** paper cards from `/print.html`.
 - **Donut corner:** needs a connection to check claims. Keep that phone on mobile data.
 
+## Codes
+Card codes are 8 characters and station keys 16, from an alphabet with no vowels and no digits that look like vowels, so they can't spell words. A blocklist in `src/codes.ts` catches consonant-only rude bits and digit stand-ins (like 5 for S), and any code that hits it is rerolled. The test checks 100,000 codes.
+
+## Look
+Matches nuscomputing.com: Club logo, DM Sans headings, Quicksand body, slate blue `#365486`, outlined cards with a solid offset shadow. Each wing has a colour and icon. The progress meter is a donut that gets icing per stamp, sprinkled in the colours of the stalls visited. Fonts load from Google Fonts and fall back to the phone's own font with no wifi.
+
 ## Privacy
 Stores a random code, an optional nickname, stamps and a donut time. No names, emails or phone numbers. If contact details are ever collected, check PDPA with the staff advisor first. There's no lucky draw, so no draw rules are needed.
 
@@ -69,6 +75,7 @@ Stores a random code, an optional nickname, stamps and a donut time. No names, e
 4. Keep the repo. Next time it's one config file and a new Blueprint.
 
 ## Known gaps
-- Club logo is a text mark until a logo file is added to `public/`.
+- Club logo (`public/logo.png`) was taken from nuscomputing.com. Swap in an official file if Publicity has a cleaner one.
+- Card wording is a draft. Read it before the day.
 - Not yet tried on real iOS Safari and Android Chrome. Camera access needs HTTPS, which Render provides.
 - Anyone can make cards, so "Cards" on the admin page can be inflated. Stamps and donuts can't be.

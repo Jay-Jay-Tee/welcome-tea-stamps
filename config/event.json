@@ -4,34 +4,16 @@
   "time": "3-6pm",
   "venue": "COM3 MPH",
   "stalls": [
-    {
-      "id": "presidential",
-      "name": "Presidential (Tech Cell)"
-    },
-    {
-      "id": "internal-relations",
-      "name": "Internal Relations"
-    },
-    {
-      "id": "external-relations",
-      "name": "External Relations"
-    },
-    {
-      "id": "student-life",
-      "name": "Student Life"
-    },
-    {
-      "id": "student-development",
-      "name": "Student Development"
-    }
+    { "id": "presidential", "name": "Presidential (Tech Cell)", "icon": "crown", "color": "#365486" },
+    { "id": "internal-relations", "name": "Internal Relations", "icon": "people", "color": "#ff605c" },
+    { "id": "external-relations", "name": "External Relations", "icon": "globe", "color": "#3fae5a" },
+    { "id": "student-life", "name": "Student Life", "icon": "party", "color": "#ffbd44" },
+    { "id": "student-development", "name": "Student Development", "icon": "sprout", "color": "#5aa9e6" }
   ],
   "reward": {
     "id": "donut",
     "label": "Free donut",
     "stampsRequired": 5,
-    "station": {
-      "id": "donut-corner",
-      "name": "Donut corner"
-    }
+    "station": { "id": "donut-corner", "name": "Donut corner", "icon": "donut", "color": "#e58e26" }
   }
 }
