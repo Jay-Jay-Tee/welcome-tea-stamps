@@ -1,0 +1,37 @@
+{
+  "name": "SoC Welcome Tea",
+  "date": "2026-10-28",
+  "time": "TBC",
+  "venue": "TBC",
+  "stalls": [
+    {
+      "id": "presidential",
+      "name": "Presidential (Tech Cell)"
+    },
+    {
+      "id": "internal-relations",
+      "name": "Internal Relations"
+    },
+    {
+      "id": "external-relations",
+      "name": "External Relations"
+    },
+    {
+      "id": "student-life",
+      "name": "Student Life"
+    },
+    {
+      "id": "student-development",
+      "name": "Student Development"
+    }
+  ],
+  "reward": {
+    "id": "donut",
+    "label": "Free donut",
+    "stampsRequired": 5,
+    "station": {
+      "id": "donut-corner",
+      "name": "Donut corner"
+    }
+  }
+}

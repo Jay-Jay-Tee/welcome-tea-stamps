@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main style="max-width:760px">
+  <div class="brand">Admin</div>
+  <section id="login">
+    <h1>Admin PIN</h1>
+    <input id="pin" type="password" autocomplete="off">
+    <div class="row"><button id="go">Open</button></div>
+  </section>
+  <section id="dash" hidden>
+    <h1>Welcome Tea live</h1>
+    <div id="stats"></div>
+    <div id="donutBanner" class="banner"></div>
+    <div class="row"><button id="toggle"></button></div>
+    <h2>Stations</h2>
+    <table id="tbl"></table>
+    <p class="muted">PINs belong in the volunteer briefing, not on a public screen.</p>
+    <hr>
+    <h2>Fix a card</h2>
+    <input id="fixCode" type="text" placeholder="8 character code" autocapitalize="characters" autocomplete="off">
+    <div class="row"><select id="fixStall"></select></div>
+    <div class="row"><button id="addStamp">Add stamp</button><button id="rmStamp" class="ghost">Remove stamp</button></div>
+    <div class="row"><button id="unredeem" class="ghost">Undo donut claim</button></div>
+    <p id="fixOut" class="muted"></p>
+    <hr>
+    <div class="row"><button id="csv" class="ghost">Download CSV</button><button id="reset" class="danger">Wipe all test data</button></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let pin = sessionStorage.getItem("apin") || "", stats = null;
+const call = async (method, path, body) => {
+  const r = await fetch(path, { method, headers: { "content-type": "application/json", "x-admin-pin": pin }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw Object.assign(new Error((await r.json().catch(() => ({}))).error || "failed"), { status: r.status });
+  return r;
+};
+async function load() {
+  try {
+    stats = await (await call("GET", "/api/admin/stats")).json();
+  } catch (e) { if (e.status === 401) { sessionStorage.removeItem("apin"); $("dash").hidden = true; $("login").hidden = false; } return; }
+  $("login").hidden = true; $("dash").hidden = false;
+  $("stats").innerHTML = [["Cards", stats.attendees], ["Stamps", stats.stamps], ["Full cards", stats.completed], ["Donuts given", stats.donutsGiven]]
+    .map(([k, v]) => `<span class="stat"><b>${v}</b>${k}</span>`).join("");
+  $("donutBanner").className = "banner " + (stats.donutsOut ? "bad" : "ok");
+  $("donutBanner").textContent = stats.donutsOut ? "Donuts are marked OUT. Cards show 'no more donuts'." : "Donuts are available.";
+  $("toggle").textContent = stats.donutsOut ? "Donuts are back" : "Donut corner says no more donuts";
+  $("tbl").innerHTML = "<tr><th>Station</th><th>Stamps</th><th>Swag out</th><th>PIN</th></tr>" +
+    stats.stations.map((s) => `<tr><td>${s.name}</td><td>${s.kind === "stall" ? s.stamps : "-"}</td><td>${s.kind === "stall" ? s.swagGiven : "-"}</td><td>${s.pin}</td></tr>`).join("");
+  if (!$("fixStall").children.length) $("fixStall").innerHTML = stats.stations.filter((s) => s.kind === "stall").map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+}
+$("go").onclick = () => { pin = $("pin").value; sessionStorage.setItem("apin", pin); load(); };
+$("toggle").onclick = async () => { await call("POST", "/api/admin/donuts-out", { out: !stats.donutsOut }); load(); };
+const fix = (path, extra) => async () => {
+  try { const v = await (await call("POST", path, { code: $("fixCode").value, stallId: $("fixStall").value, ...extra })).json(); $("fixOut").textContent = `${v.code}: ${v.stamps.length} stamps, donut ${v.donutClaimed ? "collected" : "not collected"}.`; load(); }
+  catch (e) { $("fixOut").textContent = e.message; }
+};
+$("addStamp").onclick = fix("/api/admin/stamp", { on: true });
+$("rmStamp").onclick = fix("/api/admin/stamp", { on: false });
+$("unredeem").onclick = fix("/api/admin/unredeem", {});
+$("csv").onclick = async () => { const b = await (await call("GET", "/api/admin/export.csv")).blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "stamps.csv"; a.click(); };
+$("reset").onclick = async () => { if (prompt('Type RESET to delete every card and stamp') === "RESET") { await call("POST", "/api/admin/reset", { confirm: "RESET" }); load(); } };
+if (pin) load();
+setInterval(() => { if (!$("dash").hidden) load(); }, 5000);
+</script>
+</body>
+</html>

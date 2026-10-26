@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Print sheet</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  main { max-width: 800px; }
+  .poster { text-align: center; border: 3px solid var(--blue); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+  .poster img { width: 320px; }
+  .poster .url { font: 700 1.1rem ui-monospace, Menlo, monospace; color: var(--blue); word-break: break-all; }
+  .papers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .paper { border: 2px dashed #999; border-radius: 10px; padding: 12px; break-inside: avoid; }
+  .paper .boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+  .paper .box { border: 2px solid var(--blue); border-radius: 8px; height: 64px; font-size: .75rem; padding: 3px; color: var(--blue); }
+  .line { border-bottom: 1px solid #333; height: 22px; margin-top: 4px; }
+  @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="noprint"><button onclick="print()">Print</button> <span class="muted">Poster first, then paper cards. Paper cards are the fallback if wifi dies: volunteers stamp them by hand and the donut corner checks all boxes.</span></p>
+  <div class="poster">
+    <div class="brand">NUS Students' Computing Club</div>
+    <h1 id="t">Welcome Tea</h1>
+    <h2>Scan to get your stamp card</h2>
+    <img id="q" alt="QR code to the stamp card">
+    <p class="url" id="u"></p>
+    <p>Five stalls. Five stamps. One free donut.</p>
+  </div>
+  <h2 class="noprint">Paper cards</h2>
+  <div class="papers" id="papers"></div>
+</main>
+<script>
+(async () => {
+  const cfg = await (await fetch("/api/config")).json();
+  const url = location.origin + "/";
+  document.getElementById("t").textContent = cfg.name;
+  document.getElementById("u").textContent = url;
+  document.getElementById("q").src = "/api/qr.svg?text=" + encodeURIComponent(url);
+  const card = `<div class="paper"><div class="brand">${cfg.name}</div><div>Name: <div class="line"></div></div>
+    <div class="boxes">${cfg.stalls.map((s) => `<div class="box">${s.name}</div>`).join("")}</div>
+    <div class="muted">${cfg.stalls.length} stamps = ${cfg.reward.label.toLowerCase()} at the ${cfg.reward.station.name}</div></div>`;
+  document.getElementById("papers").innerHTML = card.repeat(8);
+})();
+</script>
+</body>
+</html>

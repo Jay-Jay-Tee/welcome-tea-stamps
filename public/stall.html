@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stall screen</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <div class="brand">Volunteer screen</div>
+
+  <section id="login">
+    <h1>Enter your stall PIN</h1>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="4 digit PIN">
+    <div class="row"><button id="pinGo">Start</button></div>
+  </section>
+
+  <section id="work" hidden>
+    <h1 id="who"></h1>
+    <p class="muted" id="queueNote"></p>
+    <video id="video" playsinline muted></video>
+    <canvas id="canvas" hidden></canvas>
+    <div class="row">
+      <button id="camBtn" class="ghost">Start camera</button>
+    </div>
+    <div class="row">
+      <input id="manual" type="text" placeholder="Or type the 8 character code" autocapitalize="characters" autocomplete="off">
+      <button id="manualGo">Go</button>
+    </div>
+    <div id="result" hidden></div>
+    <hr>
+    <p class="muted"><a href="#" id="logout">Switch station</a></p>
+  </section>
+</main>
+<script src="/vendor/jsqr.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
+let pin = store.get("pin"), me = null, last = { code: "", at: 0 }, stream = null;
+
+const post = async (path, body) => {
+  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-pin": pin }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || "Request failed"), { status: r.status });
+  return j;
+};
+const clean = (s) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, "");
+const msg = (cls, html) => { const r = $("result"); r.hidden = false; r.className = "banner " + cls; r.innerHTML = html; };
+
+// Offline queue: stamps that failed on a network error are kept and retried. The server ignores repeats, so retrying is safe.
+const queue = () => JSON.parse(store.get("queue:" + me.id) || "[]");
+const saveQueue = (q) => { store.set("queue:" + me.id, JSON.stringify(q)); $("queueNote").textContent = q.length ? q.length + " stamp(s) saved on this phone, waiting for wifi." : ""; };
+async function flush() {
+  if (!me || me.kind !== "stall") return;
+  let q = queue(); if (!q.length) return;
+  const rest = [];
+  for (const c of q) { try { await post("/api/station/stamp", { code: c }); } catch (e) { if (!e.status || e.status >= 500) rest.push(c); } }
+  saveQueue(rest);
+}
+setInterval(flush, 8000);
+
+async function handle(raw) {
+  const code = clean(raw);
+  if (!code || (code === last.code && Date.now() - last.at < 3000)) return;
+  last = { code, at: Date.now() };
+  try {
+    if (me.kind === "stall") {
+      const r = await post("/api/station/stamp", { code });
+      const who = r.nickname ? " (" + r.nickname + ")" : "";
+      msg(r.result === "stamped" ? "ok" : "warn",
+        `<p class="big">${r.result === "stamped" ? "Stamped" : "Already stamped here"}${who}</p>
+         <p>${r.count} of ${r.stampsRequired} stamps. Code ${code}.</p>
+         <label><input type="checkbox" id="swag"> Swag handed over</label>
+         <div class="row"><button id="undo" class="danger">Undo this stamp</button></div>`);
+      $("swag").onchange = (e) => post("/api/station/swag", { code, given: e.target.checked }).catch(() => { e.target.checked = !e.target.checked; alert("Couldn't save. Try again."); });
+      $("undo").onclick = async () => { try { await post("/api/station/undo", { code }); msg("warn", "Stamp removed for " + code + "."); } catch { alert("Couldn't undo. Try again."); } };
+    } else {
+      const r = await post("/api/station/redeem", { code });
+      const text = {
+        redeemed: ["ok", "Give them a donut", "Marked as collected."],
+        already: ["bad", "Already collected", "This card already got its donut. Say no, kindly."],
+        incomplete: ["bad", "Not a full card yet", (r.count || 0) + " of " + r.stampsRequired + " stamps. Send them back to the stalls."],
+        out: ["warn", "No more donuts", "The switch is set to out. Ask a committee member."],
+      }[r.result];
+      msg(text[0], `<p class="big">${text[1]}</p><p>${text[2]}</p>` + (r.result === "redeemed" ? `<div class="row"><button id="undo" class="danger">Undo (wrong card)</button></div>` : ""));
+      if ($("undo")) $("undo").onclick = async () => { try { await post("/api/station/unredeem", { code }); msg("warn", "Donut claim removed for " + code + "."); } catch { alert("Couldn't undo."); } };
+    }
+  } catch (e) {
+    if (e.status === 404) msg("bad", `<p class="big">No card with code ${code}</p><p>Check the code and try again.</p>`);
+    else if (e.status === 401) { store.del("pin"); location.reload(); }
+    else if (!e.status && me.kind === "stall") { saveQueue([...queue(), code]); msg("warn", `<p class="big">No wifi. Saved.</p><p>${code} will be stamped when the connection is back. Tell them it is fine.</p>`); }
+    else msg("bad", `<p class="big">Couldn't do that</p><p>${e.message}. No wifi? Try again in a moment.</p>`);
+  }
+}
+
+async function scanLoop() {
+  const v = $("video"), c = $("canvas"), ctx = c.getContext("2d", { willReadFrequently: true });
+  if (v.readyState === v.HAVE_ENOUGH_DATA) {
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    ctx.drawImage(v, 0, 0);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    const hit = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+    if (hit) handle(hit.data);
+  }
+  setTimeout(scanLoop, 200);
+}
+$("camBtn").onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    $("video").srcObject = stream; await $("video").play(); $("camBtn").hidden = true; scanLoop();
+  } catch { msg("warn", "Camera blocked. Allow camera access in the browser, or type the code instead."); }
+};
+$("manualGo").onclick = () => { handle($("manual").value); $("manual").value = ""; };
+$("logout").onclick = (e) => { e.preventDefault(); store.del("pin"); location.reload(); };
+$("pinGo").onclick = () => { pin = $("pin").value.trim(); start(); };
+
+async function start() {
+  if (!pin) return;
+  try {
+    const r = await fetch("/api/station/me", { headers: { "x-pin": pin } });
+    if (!r.ok) throw new Error();
+    me = await r.json(); store.set("pin", pin);
+    $("login").hidden = true; $("work").hidden = false;
+    $("who").textContent = me.name + (me.kind === "donut" ? " (donuts)" : "");
+    saveQueue(queue()); flush();
+  } catch { store.del("pin"); alert("That PIN didn't work, or there's no wifi."); }
+}
+start();
+</script>
+</body>
+</html>

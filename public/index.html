@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome Tea Stamp Card</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <div class="brand">NUS Students' Computing Club</div>
+  <h1 id="title">Welcome Tea</h1>
+  <p class="muted" id="when"></p>
+
+  <section id="start" hidden>
+    <p>Visit every stall, get a stamp at each one, and collect a free donut. No account, no app.</p>
+    <label for="nick" class="muted">Nickname (optional, helps if you lose your phone)</label>
+    <input id="nick" type="text" maxlength="30" autocomplete="off">
+    <div class="row"><button id="go">Get my card</button></div>
+    <p class="muted">Already have a code? <a href="#" id="haveCode">Type it in</a></p>
+    <div id="recover" hidden>
+      <div class="row"><input id="codeIn" type="text" placeholder="8 character code" autocapitalize="characters" autocomplete="off"><button id="codeGo" class="ghost">Open</button></div>
+    </div>
+  </section>
+
+  <section id="card" hidden>
+    <div id="status" class="banner" hidden></div>
+    <h2><span id="count">0</span> of <span id="need">5</span> stamps</h2>
+    <div class="slots" id="slots"></div>
+    <div id="donut" class="banner" hidden></div>
+    <div class="qrbox">
+      <p class="big" style="margin:4px 0">Show this at each stall</p>
+      <img id="qr" alt="Your stamp code">
+      <div class="code" id="code"></div>
+      <p class="muted">Volunteers scan it. Screenshot it as a backup. Keep this code if you ever need to reopen your card.</p>
+    </div>
+    <p class="muted"><a href="#" id="forget">Not my card, start over</a></p>
+  </section>
+  <p class="banner bad" id="err" hidden></p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
+let cfg = null, code = null, view = null, timer = null;
+
+const api = async (path, opts) => {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || "Request failed"), { status: r.status });
+  return j;
+};
+const showErr = (m) => { $("err").textContent = m; $("err").hidden = !m; };
+
+async function loadCfg() {
+  try { cfg = await api("/api/config"); store.set("cfg", JSON.stringify(cfg)); }
+  catch { cfg = JSON.parse(store.get("cfg") || "null"); }
+  if (!cfg) return;
+  $("title").textContent = cfg.name;
+  $("when").textContent = [cfg.date, cfg.time, cfg.venue].filter((x) => x && x !== "TBC").join(" · ");
+  $("need").textContent = cfg.reward.stampsRequired;
+}
+
+function render() {
+  $("start").hidden = true; $("card").hidden = false;
+  $("code").textContent = code;
+  const qr = store.get("qr:" + code);
+  if (qr) $("qr").src = qr; else $("qr").src = "/api/qr/" + code + ".svg";
+  $("count").textContent = view ? view.stamps.length : 0;
+  $("slots").innerHTML = cfg.stalls.map((s) => {
+    const on = view && view.stamps.includes(s.id);
+    return `<div class="slot ${on ? "on" : ""}"><div class="tick">${on ? "&#10003;" : "&nbsp;"}</div>${s.name}</div>`;
+  }).join("");
+  const d = $("donut"); d.hidden = true; d.className = "banner";
+  if (view) {
+    if (view.donutClaimed) { d.hidden = false; d.className = "banner ok"; d.textContent = "Donut collected. Enjoy it."; }
+    else if (view.complete && view.donutsOut) { d.hidden = false; d.className = "banner warn"; d.textContent = "Full card! The donut corner says no more donuts though. So sorry. Find a committee member and we will sort something out."; }
+    else if (view.complete) { d.hidden = false; d.className = "banner ok"; d.textContent = "Full card! Head to the " + cfg.reward.station.name + " and show this screen for your free donut."; }
+    else { d.hidden = false; d.textContent = (view.stampsRequired - view.stamps.length) + " more stamp" + (view.stampsRequired - view.stamps.length === 1 ? "" : "s") + " to go for a free donut."; }
+  }
+}
+
+async function refresh() {
+  try {
+    view = await api("/api/cards/" + code);
+    store.set("view:" + code, JSON.stringify(view));
+    $("status").hidden = true;
+  } catch (e) {
+    if (e.status === 404) { showErr("That card no longer exists."); store.del("code"); return; }
+    $("status").hidden = false; $("status").className = "banner warn";
+    $("status").textContent = "Can't reach the server. Showing your last saved card. It updates when wifi is back.";
+    view = view || JSON.parse(store.get("view:" + code) || "null");
+  }
+  render();
+}
+
+async function cacheQr() {
+  if (store.get("qr:" + code)) return;
+  try {
+    const svg = await (await fetch("/api/qr/" + code + ".svg")).text();
+    store.set("qr:" + code, "data:image/svg+xml;utf8," + encodeURIComponent(svg));
+  } catch {}
+}
+
+function open(c) {
+  code = c; store.set("code", c); showErr("");
+  history.replaceState(null, "", location.pathname);
+  refresh().then(cacheQr);
+  clearInterval(timer); timer = setInterval(refresh, 6000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+}
+
+$("go").onclick = async () => {
+  $("go").disabled = true;
+  try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); open(c.code); }
+  catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
+  $("go").disabled = false;
+};
+$("haveCode").onclick = (e) => { e.preventDefault(); $("recover").hidden = false; };
+$("codeGo").onclick = () => { const c = $("codeIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c) open(c); };
+$("forget").onclick = (e) => { e.preventDefault(); if (confirm("Forget this card on this phone? Keep your code if you want it back.")) { store.del("code"); location.reload(); } };
+
+(async () => {
+  await loadCfg();
+  const fromHash = (location.hash.match(/c=([A-Za-z0-9]+)/) || [])[1];
+  const saved = fromHash || store.get("code");
+  if (saved) open(saved.toUpperCase()); else $("start").hidden = false;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# One-click setup: Render dashboard > New > Blueprint > pick this repo.
+# Paid plans on purpose. The free web service sleeps after 15 minutes idle and the free Postgres expires after 30 days.
+# Check current prices on Render's pricing page before the event.
+services:
+  - type: web
+    name: welcome-tea-stamps
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: welcome-tea-db
+          property: connectionString
+      - key: ADMIN_PIN
+        sync: false # you type this in the Render dashboard. Never commit it.
+
+databases:
+  - name: welcome-tea-db
+    plan: basic-256mb
+    region: singapore
