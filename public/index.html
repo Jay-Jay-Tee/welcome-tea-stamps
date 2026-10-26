@@ -82,6 +82,7 @@
         <div class="row"><input id="codeIn" type="text" placeholder="8 character code" autocapitalize="characters" autocomplete="off" spellcheck="false"><button id="codeGo" class="ghost">Open</button></div>
       </div>
     </div>
+    <div class="card links" id="linksStart" hidden></div>
   </section>
 
   <section id="card" hidden>
@@ -141,10 +142,11 @@ async function loadCfg() {
   // Links from config: only https URLs are passed by the server's config check, escaped again here anyway.
   const L = cfg.links;
   if (L && L.items && L.items.length) {
-    $("links").innerHTML = `<h2>${esc(L.heading)}</h2>${L.note ? `<p class="muted" style="margin:0">${esc(L.note)}</p>` : ""}` +
+    const html = `<h2>${esc(L.heading)}</h2>${L.note ? `<p class="muted" style="margin:0">${esc(L.note)}</p>` : ""}` +
       L.items.filter((l) => /^https:\/\//.test(l.url)).map((l, i) =>
         `<a class="btn ${i ? "ghost" : ""}" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join("");
-    $("links").hidden = false;
+    // Same box on the start screen and the card screen, so the links are there before and after getting a card.
+    for (const id of ["links", "linksStart"]) { $(id).innerHTML = html; $(id).hidden = false; }
   }
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   return true;
