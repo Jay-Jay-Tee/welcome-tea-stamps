@@ -163,6 +163,11 @@ async function scanLoop() {
   setTimeout(scanLoop, 200);
 }
 $("camBtn").onclick = async () => {
+  // Phones only allow the camera on https pages (localhost is the one exception).
+  if (!window.isSecureContext || !navigator.mediaDevices) {
+    show("warn", "The camera only works on an https:// link, and this page is on http://. Type the 8 character code under their QR instead.");
+    return;
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     $("video").hidden = false; $("video").srcObject = stream; await $("video").play(); $("camBtn").hidden = true; scanLoop();
