@@ -107,6 +107,8 @@ const rotated = (await call("POST", `/api/admin/stations/${cfg.stalls[1].id}/rot
 assert.equal((await call("GET", "/api/station/me", undefined, { "x-key": pins[cfg.stalls[1].id] })).status, 401, "old key dies");
 assert.equal((await call("GET", "/api/station/me", undefined, { "x-key": rotated })).body.id, cfg.stalls[1].id);
 
+assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)).status, 400, "wrong reset phrase is refused");
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
 assert.equal(end.attendees, N + 1);
 assert.equal(end.completed, full.length);

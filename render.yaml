@@ -19,6 +19,8 @@ services:
           property: connectionString # internal address, no public hop
       - key: ADMIN_PIN
         sync: false # typed into the Render dashboard on first deploy, 12+ characters. Never committed.
+      - key: RESET_PHRASE
+        sync: false # typed into the Render dashboard; what you type to confirm "Wipe all cards and stamps"
       - key: PUBLIC_URL
         sync: false # optional, e.g. https://stamps.nuscomputing.com. Leave blank to use whatever address the page was opened on.
 

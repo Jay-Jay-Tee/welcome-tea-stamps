@@ -51,7 +51,7 @@ Start the paid instances a day or two before the event.
 - A card someone can't scan: fix it under "Fix a card" with the attendee's code.
 
 ## Reset
-**Wipe all cards and stamps** on the admin page. Station keys stay. Do it after testing and before doors open.
+**Wipe all cards and stamps** on the admin page. It asks for the reset phrase, which is the `RESET_PHRASE` environment variable (set it in Render next to `ADMIN_PIN`; locally it defaults to `RESET`). Station keys stay. Do it after testing and before doors open.
 
 ## Bad wifi
 - **Attendee card:** shows the last saved card, and the QR stays up. The page reopens even offline once it has loaded once.

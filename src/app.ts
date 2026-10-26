@@ -28,7 +28,8 @@ const wrap =
 const sameSecret = (a: string, b: string) =>
   crypto.timingSafeEqual(crypto.createHash("sha256").update(a).digest(), crypto.createHash("sha256").update(b).digest());
 
-export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) {
+// resetPhrase comes from the RESET_PHRASE env var, so it never sits in the repo or the page source.
+export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, resetPhrase = "RESET") {
   await migrate(pool);
   const stallIds = new Set(cfg.stalls.map((s) => s.id));
 
@@ -94,7 +95,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
 
   // ---- public: attendee ----
   app.get("/api/config", (_req, res) => {
-    res.json({ name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue, stalls: cfg.stalls, reward: cfg.reward });
+    res.json({ name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue, stalls: cfg.stalls, reward: cfg.reward, links: cfg.links });
   });
 
   app.post(
@@ -330,7 +331,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string) 
     "/api/admin/reset",
     adminAuth,
     wrap(async (req, res) => {
-      if (req.body?.confirm !== "RESET") throw new HttpError(400, 'Send {"confirm":"RESET"}');
+      if (!sameSecret(String(req.body?.confirm ?? ""), resetPhrase)) throw new HttpError(400, "Wrong reset phrase");
       await pool.query("delete from stamps");
       await pool.query("delete from attendees");
       await setSetting("donuts_out", "0");

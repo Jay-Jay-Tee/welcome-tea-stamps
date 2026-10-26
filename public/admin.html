@@ -123,9 +123,10 @@ $("csv").onclick = async () => {
   const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "welcome-tea-stamps.csv"; a.click();
 };
 $("reset").onclick = async () => {
-  if (prompt("This deletes every card and stamp. Station keys stay. Type RESET to go ahead.") === "RESET") {
-    await call("POST", "/api/admin/reset", { confirm: "RESET" }); load();
-  }
+  const phrase = prompt("This deletes every card and stamp. Station keys stay. Type the reset phrase to go ahead.");
+  if (!phrase) return;
+  try { await call("POST", "/api/admin/reset", { confirm: phrase }); load(); alert("All cards and stamps deleted."); }
+  catch (e) { alert(e.message); }
 };
 
 if (pin) load();

@@ -9,6 +9,7 @@ export type EventConfig = {
   time: string;
   venue: string;
   stalls: Look[];
+  links?: { heading: string; note?: string; items: { label: string; url: string }[] };
   reward: {
     id: string;
     label: string;
@@ -24,6 +25,8 @@ export function validateConfig(cfg: EventConfig): EventConfig {
   if (!ids.every((id) => /^[a-z0-9-]+$/.test(id))) throw new Error("config: ids must be lowercase letters, digits, hyphens");
   for (const s of [...cfg.stalls, cfg.reward.station])
     if (s.color !== undefined && !/^#[0-9a-fA-F]{6}$/.test(s.color)) throw new Error(`config: ${s.id} color must look like #365486`);
+  for (const l of cfg.links?.items ?? [])
+    if (!/^https:\/\//.test(l.url)) throw new Error(`config: link "${l.label}" must start with https://`);
   const n = cfg.reward.stampsRequired;
   if (!Number.isInteger(n) || n < 1 || n > cfg.stalls.length)
     throw new Error(`config: stampsRequired must be between 1 and the number of stalls (${cfg.stalls.length})`);
