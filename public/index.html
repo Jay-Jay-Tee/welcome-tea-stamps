@@ -57,6 +57,8 @@
   body.glitch.flip main { filter: invert(1); }
   @keyframes shake { 0% { transform: translate(-3px, 1px) skewX(-2deg); } 100% { transform: translate(3px, -2px) skewX(2deg); } }
   .quiz button { display: block; width: 100%; margin: 8px 0 0; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; }
+  .hearts { color: #ff605c; letter-spacing: 2px; margin-left: 6px; }
+  .hearts .lost { color: #4a556d; }
   .quiz .q { font-weight: 700; margin: 6px 0 2px; }
   .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
   .squashedBadge { margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
@@ -424,7 +426,7 @@ function tryFix(word) {
   const guess = $("fixIn").value.toUpperCase().replace(/[^A-Z]/g, "");
   if (guess !== word) {
     wrongTries++;
-    $("fixMsg").textContent = wrongTries >= 2
+    $("fixMsg").textContent = wrongTries >= 3
       ? "Patch rejected: tests failing. Hint: read the stack from the top, first letters only."
       : "Patch rejected: tests failing.";
     return;
@@ -432,34 +434,46 @@ function tryFix(word) {
   runQuiz(word);
 }
 
-// Stage 2: three quick questions, chosen per card. A wrong answer just fails the test; try again.
+// Stage 2: four questions, chosen per card, with 3 hearts. A wrong answer costs a heart; none left is game over.
 const QUIZ = [
-  ["Which git command saves your staged changes?", ["git commit", "git push", "git clone"]],
-  ["What does HTTP 404 mean?", ["Not found", "Server crashed", "Too many requests"]],
-  ["What is 101 in binary, written in decimal?", ["5", "3", "101"]],
-  ["What does CSS stand for?", ["Cascading Style Sheets", "Computer Style System", "Creative Script Syntax"]],
-  ["An array has 5 items. Counting from 0, what index is the last one?", ["4", "5", "6"]],
-  ["Which wing is Tech Cell part of?", ["Presidential", "Student Life", "External Relations"]],
-  ["What does SoC stand for here?", ["School of Computing", "System on a Chip", "Society of Coders"]],
+  ["In JavaScript, what is 0.1 + 0.2 === 0.3?", ["false", "true", "TypeError"]],
+  ["In JavaScript, what does typeof null return?", ['"object"', '"null"', '"undefined"']],
+  ["What is 1011 + 0110 in binary?", ["10001", "1111", "10101"]],
+  ["In Python, what does print(0b101 << 2) output?", ["20", "10", "7"]],
+  ["Which sort is O(n log n) even in the worst case?", ["Merge sort", "Quicksort", "Insertion sort"]],
+  ["Average time to look up a key in a hash table?", ["O(1)", "O(log n)", "O(n)"]],
+  ["In Python, what is [1, 2, 3][-1]?", ["3", "1", "IndexError"]],
+  ["What does git reset --hard HEAD~1 do?", ["Throws away the last commit and its changes", "Pushes the last commit", "Renames the current branch"]],
+  ["What does git rebase main do on your branch?", ["Replays your commits on top of main", "Deletes main", "Merges your branch into main"]],
+  ["Which of these is NOT a standard HTTP method?", ["FETCH", "PATCH", "OPTIONS"]],
+  ["Which HTTP status code is \"I'm a teapot\"?", ["418", "419", "451"]],
+  ["What year was the NUS Students' Computing Club founded?", ["1998", "2005", "1985"]],
 ];
 function runQuiz(word) {
   const seed = [...String(code)].reduce((h, ch) => (h * 33 + ch.charCodeAt(0)) >>> 0, 11);
-  const picks = [0, 1, 2].map((k) => (seed + k * 3) % QUIZ.length).filter((v, i, a) => a.indexOf(v) === i);
-  while (picks.length < 3) picks.push((picks[picks.length - 1] + 1) % QUIZ.length);
-  let step = 0;
+  const picks = [0, 1, 2, 3].map((k) => (seed + k * 3) % QUIZ.length).filter((v, i, a) => a.indexOf(v) === i);
+  while (picks.length < 4) picks.push((picks[picks.length - 1] + 1) % QUIZ.length);
+  let step = 0, hearts = 3;
   const box = $("crash").querySelector(".found");
+  const heartRow = () => `<span class="hearts" aria-label="${hearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(3 - hearts)}</span></span>`;
+  // Wrong answer: lose a heart and retry the same question. No hearts left: game over, start the bug again.
+  const loseHeart = () => {
+    hearts--;
+    if (hearts > 0) return ask(`Wrong. ${hearts} heart${hearts === 1 ? "" : "s"} left.`);
+    box.innerHTML = `<b>Out of hearts.</b>The donut crashed for good. Close this and tap the donut 5 times to try again.<br><span class="dim">Tap outside this box to close.</span>`;
+  };
   const ask = (msg) => {
     if (step >= picks.length) return finishBug(word);
     const [q, opts] = QUIZ[picks[step]];
     // Shuffle answers per card so the right one isn't always first.
     const rot = (seed + step * 7) % opts.length;
     const order = opts.map((o, i) => [o, i]).map((_, j, all) => all[(j + rot) % all.length]);
-    box.innerHTML = `<b>Patch accepted. Running tests (${step + 1}/${picks.length})</b>
+    box.innerHTML = `<b>Patch accepted. Running tests (${step + 1}/${picks.length}) ${heartRow()}</b>
       <div class="quiz"><p class="q">${esc(q)}</p>${order.map(([o, i]) => `<button data-ok="${i === 0 ? 1 : 0}">${esc(o)}</button>`).join("")}</div>
       <div class="dim">${msg || ""}</div><span class="dim">Tap outside this box to close.</span>`;
     box.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
       if (btn.dataset.ok === "1") { step++; ask(""); }
-      else { try { navigator.vibrate && navigator.vibrate(120); } catch {} ask("Test failed. Try again."); }
+      else { try { navigator.vibrate && navigator.vibrate(120); } catch {} loseHeart(); }
     }));
   };
   ask("");
