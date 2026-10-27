@@ -109,12 +109,30 @@ assert.equal((await call("GET", "/api/station/me", undefined, { "x-key": rotated
 
 assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)).status, 400, "wrong reset phrase is refused");
 
+// Bug hunt Hall of Fame: needs the Tech Cell stamp and the card's own fix word
+{
+  const { fixWordFor, BUG_STALL } = await import("../src/bughunt.js");
+  const fresh = (await call("POST", "/api/cards", { nickname: "hunter" })).body.code as string;
+  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh) })).status, 403, "no Tech stamp, no hall");
+  await call("POST", "/api/station/stamp", { code: fresh }, { "x-key": pins[BUG_STALL] });
+  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: "NOPE" })).status, 400, "wrong word refused");
+  const first = (await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh).toLowerCase(), name: "<b>Ada</b>" })).body;
+  assert.equal(first.rank, 1);
+  assert.equal(first.name, "bAda/b", "angle brackets stripped");
+  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh), name: "again" })).body.rank, 1, "solving twice keeps rank");
+  const second = (await call("POST", "/api/cards", {})).body.code as string;
+  await call("POST", "/api/station/stamp", { code: second }, { "x-key": pins[BUG_STALL] });
+  assert.equal((await call("POST", `/api/cards/${second}/squash`, { word: fixWordFor(second) })).body.rank, 2);
+  const hall = (await call("GET", "/api/hall")).body;
+  assert.deepEqual(hall.map((h: any) => h.name), ["bAda/b", "Anonymous squasher"]);
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 1);
+assert.equal(end.attendees, N + 3);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 2);
+assert.equal(csv.trim().split("\n").length, N + 4);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

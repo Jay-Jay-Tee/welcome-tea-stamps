@@ -61,7 +61,7 @@
   .hearts .lost { color: #4a556d; }
   .quiz .q { font-weight: 700; margin: 6px 0 2px; }
   .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
-  .squashedBadge { margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
+  .squashedBadge { cursor: pointer; margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
   .crash .row input { background: #fff; }
   .crash .found b { display: block; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.4rem; color: #ffbd44; margin-bottom: 4px; }
   /* Donut drops in spinning; on collection a bite appears */
@@ -119,7 +119,7 @@
       <h2>Your stamps</h2>
       <ul class="slots" id="slots"></ul>
       <p id="todo" class="todo" hidden>// TODO: stop people tapping the donut so much</p>
-      <p id="squashed" class="squashedBadge" hidden>Bug squashed. Show this at the Tech Cell stall.</p>
+      <p id="squashed" class="squashedBadge" hidden>Bug squashed. Tap to see your rank and certificate.</p>
     </div>
     <div class="card links" id="links" hidden></div>
     <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
@@ -480,15 +480,84 @@ function runQuiz(word) {
   ask("");
 }
 
+// Solved: ask for a Hall of Fame name, register it (the server re-checks the word and the Tech stamp),
+// then show their rank and a certificate they can save.
 function finishBug(word) {
   store.set(squashedKey(), "1");
-  const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
-  $("crash").querySelector(".found").innerHTML = `<b>Bug squashed.</b>Patch "${esc(word.toLowerCase())}" applied.<br>Show this screen at the ${esc(tech)} stall.<br>Card ${esc(code)}<br><span class="dim">Tap outside this box to close.</span>`;
   try { navigator.vibrate && navigator.vibrate([60, 40, 60, 40, 200]); } catch {}
   updateBugClues();
+  const box = $("crash").querySelector(".found");
+  box.innerHTML = `<b>Bug squashed.</b>Patch "${esc(word.toLowerCase())}" applied. You're going in the Hall of Fame.
+    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen"><button id="hallGo">Save</button></div>
+    <span class="dim">Shown on the screen at the Tech Cell stall. Leave it empty to stay anonymous.</span>`;
+  $("hallName").value = (view && view.nickname) || "";
+  $("hallGo").onclick = () => registerSquash(word, $("hallName").value);
+  $("hallName").onkeydown = (e) => { if (e.key === "Enter") registerSquash(word, $("hallName").value); };
+}
+
+async function registerSquash(word, name) {
+  const box = $("crash").querySelector(".found");
+  $("hallGo").disabled = true;
+  let r;
+  try {
+    r = await api(`/api/cards/${code}/squash`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ word, name }) });
+  } catch (e) {
+    $("hallGo").disabled = false;
+    box.insertAdjacentHTML("beforeend", `<div class="dim">Couldn't save (${esc(e.message)}). Check your wifi and try again.</div>`);
+    return;
+  }
+  store.set("squashRank:" + code, JSON.stringify(r));
+  showSquashed(r);
+}
+
+function showSquashed(r) {
+  const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
+  $("crash").hidden = false;
+  $("crash").querySelector(".found").innerHTML = `<b>#${r.rank} to squash the donut bug</b>${esc(r.name)}, you're in the Hall of Fame.
+    <div class="row"><button id="certGo">Save my certificate</button></div>
+    Show this screen at the ${esc(tech)} stall.<br>Card ${esc(code)}<br><span class="dim">Tap outside this box to close.</span>`;
+  $("certGo").onclick = () => saveCertificate(r);
+}
+
+// Certificate as a PNG drawn on a canvas, so it saves to the phone's photos.
+function saveCertificate(r) {
+  const W = 1200, H = 800, c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#365486"; g.fillRect(64, 64, W - 112, H - 112);            // offset shadow
+  g.fillStyle = "#fff"; g.fillRect(48, 48, W - 112, H - 112);
+  g.strokeStyle = "#1f2a44"; g.lineWidth = 6; g.strokeRect(48, 48, W - 112, H - 112);
+  g.textAlign = "center";
+  const line = (text, y, font, color) => { g.font = font; g.fillStyle = color; g.fillText(text, W / 2 - 8, y); };
+  const finish = () => {
+    line("NUS STUDENTS' COMPUTING CLUB", 230, "600 26px sans-serif", "#365486");
+    line("Certified Bug Squasher", 320, "700 72px sans-serif", "#365486");
+    line(r.name, 420, "700 54px sans-serif", "#1f2a44");
+    line(`#${r.rank} to squash the donut bug at the ${cfg.name}`, 490, "500 30px sans-serif", "#1f2a44");
+    line(`${cfg.date} · ${cfg.venue}`, 540, "500 26px sans-serif", "#5b6677");
+    line("commit-tea.", 650, "700 34px sans-serif", "#365486");
+    c.toBlob((blob) => {
+      const url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "bug-squasher.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }, "image/png");
+  };
+  const logo = new Image();
+  logo.onload = () => { const h = 96, w = (logo.width / logo.height) * h; g.drawImage(logo, W / 2 - 8 - w / 2, 92, w, h); finish(); };
+  logo.onerror = finish;
+  logo.src = "/logo.png";
 }
 
 $("crash").onclick = () => { $("crash").hidden = true; };
+$("squashed").onclick = () => {
+  let r = null;
+  try { r = JSON.parse(store.get("squashRank:" + code) || "null"); } catch {}
+  if (r) { showSquashed(r); return; }
+  // Solved but the name wasn't saved yet (say the wifi dropped): ask again.
+  showCrash(); finishBug(fixWordFor(code));
+};
 $("donut").addEventListener("click", donutTap);
 
 function openSheet(intro) {

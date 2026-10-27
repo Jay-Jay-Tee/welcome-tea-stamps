@@ -48,4 +48,10 @@ export async function migrate(pool: Pool) {
     key text primary key,
     value text not null
   )`);
+  // Bug hunt Hall of Fame: one row per card that solved it, in the order they solved it.
+  await create("squashers", `create table squashers (
+    attendee_id int primary key,
+    name text not null,
+    solved_at timestamptz default now()
+  )`);
 }

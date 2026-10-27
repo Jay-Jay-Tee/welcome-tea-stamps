@@ -6,6 +6,7 @@ import path from "node:path";
 import type { EventConfig } from "./config.js";
 import { migrate } from "./db.js";
 import { CODE_RE, KEY_RE, randomCode } from "./codes.js";
+import { BUG_STALL, fixWordFor } from "./bughunt.js";
 
 const cleanCode = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 // Station keys are 16 characters (about 75 bits), so guessing one over the network is hopeless and no rate limit is needed.
@@ -111,6 +112,34 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
         if (r.rows[0]) return res.status(201).json(await cardView(r.rows[0]));
       }
       throw new HttpError(500, "Could not make a code, try again");
+    }),
+  );
+
+  // Bug hunt: the card must have the Tech Cell stamp and the right fix word. Solving twice keeps the first rank.
+  app.post(
+    "/api/cards/:code/squash",
+    wrap(async (req, res) => {
+      const a = await findAttendee(req.params.code);
+      if (!(await stampsOf(a.id)).some((s) => s.stall_id === BUG_STALL)) throw new HttpError(403, "Visit the Tech Cell stall first");
+      if (String(req.body?.word ?? "").toUpperCase() !== fixWordFor(a.code)) throw new HttpError(400, "That isn't the fix");
+      const name = String(req.body?.name ?? "").replace(/[<>]/g, "").trim().slice(0, 24) || "Anonymous squasher";
+      await pool.query("insert into squashers (attendee_id, name) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, name]);
+      const all = (await pool.query("select attendee_id, name, solved_at from squashers order by solved_at, attendee_id")).rows as {
+        attendee_id: number; name: string; solved_at: Date;
+      }[];
+      const i = all.findIndex((r) => r.attendee_id === a.id);
+      res.json({ rank: i + 1, name: all[i].name, solvedAt: all[i].solved_at });
+    }),
+  );
+
+  // Public list for the big screen at the stall: names and ranks only.
+  app.get(
+    "/api/hall",
+    wrap(async (_req, res) => {
+      const rows = (await pool.query("select name, solved_at from squashers order by solved_at, attendee_id")).rows as {
+        name: string; solved_at: Date;
+      }[];
+      res.json(rows.slice(0, 100).map((r, i) => ({ rank: i + 1, name: r.name, solvedAt: r.solved_at })));
     }),
   );
 
@@ -334,6 +363,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     wrap(async (req, res) => {
       if (!sameSecret(String(req.body?.confirm ?? ""), resetPhrase)) throw new HttpError(400, "Wrong reset phrase");
       await pool.query("delete from stamps");
+      await pool.query("delete from squashers");
       await pool.query("delete from attendees");
       await setSetting("donuts_out", "0");
       res.json({ ok: true });

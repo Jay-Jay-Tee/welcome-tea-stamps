@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Squashers</title>
+<link rel="icon" href="/logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Big screen at the Tech Cell stall. Refreshes itself. */
+  main { max-width: 900px; }
+  .hero { text-align: center; margin: 10px 0 24px; }
+  .hero h1 { font-size: 3.4rem; }
+  .hero .kicker { font-size: 1.6rem; }
+  ol { list-style: none; padding: 0; margin: 0; }
+  li { display: flex; align-items: center; gap: 18px; border: 2px solid var(--ink); border-radius: 14px; box-shadow: 5px 5px 0 var(--blue); padding: 14px 20px; margin: 0 6px 14px 0; background: #fff; font-size: 1.5rem; font-weight: 700; }
+  li .rank { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); min-width: 64px; }
+  li.first { background: #fff7e0; box-shadow: 5px 5px 0 #ffbd44; font-size: 1.9rem; }
+  li .when { margin-left: auto; font-size: 1rem; font-weight: 500; color: var(--muted); }
+  .empty { text-align: center; font-size: 1.4rem; color: var(--muted); margin-top: 40px; }
+  .how { text-align: center; color: var(--muted); margin-top: 26px; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span></header>
+  <div class="hero">
+    <p class="kicker">commit-tea.</p>
+    <h1>Bug Squashers</h1>
+    <p class="muted">There's a bug hidden in the stamp card site. Get your Tech Cell stamp to start hunting.</p>
+  </div>
+  <ol id="list"></ol>
+  <p class="empty" id="empty" hidden>Nobody has squashed it yet. Be the first.</p>
+  <p class="how">Squashed it? Show your screen at this stall.</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+async function load() {
+  try {
+    const rows = await (await fetch("/api/hall")).json();
+    $("empty").hidden = rows.length > 0;
+    $("list").innerHTML = rows.map((r) => {
+      const t = new Date(r.solvedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span>${esc(r.name)}</span><span class="when">${esc(t)}</span></li>`;
+    }).join("");
+  } catch {}
+}
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

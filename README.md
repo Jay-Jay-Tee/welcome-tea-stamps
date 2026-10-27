@@ -17,6 +17,7 @@ npm test           # 200 simulated attendees plus the safety checks, a few secon
 | `/` | Attendees | Card and QR. Refreshes every 6s. Shows the last saved copy if wifi drops |
 | `/stall.html` | Volunteers | Opened from a station login QR. Scan or type a code, tick swag, undo |
 | `/admin.html` | Tech Lead | Live counts, donut switch, station login QRs, new keys, card fixes, CSV, wipe |
+| `/hall.html` | Tech Cell stall screen | Bug hunt Hall of Fame: solvers in order, refreshes every 5s |
 | `/print.html` | Tech Lead | Door poster QR and paper fallback cards. Print it from the live address |
 
 Volunteer handout: `docs/volunteer-briefing.md`.
