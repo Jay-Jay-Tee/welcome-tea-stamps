@@ -45,6 +45,14 @@
   .stamped i { position: absolute; top: -20px; width: 10px; height: 16px; border-radius: 2px; animation: fall 1.6s ease-in forwards; }
   @keyframes fall { to { transform: translateY(110vh) rotate(var(--spin)); } }
   @keyframes fadein { from { opacity: 0; } }
+  /* Footer and the planted "bug" (an easter egg, nothing actually breaks) */
+  .foot { text-align: center; margin: 26px 0 6px; font-size: .85rem; color: var(--muted); }
+  .foot b { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); }
+  .crash { position: fixed; inset: 0; z-index: 30; background: #1f2a44; color: #e8ecf3; padding: 24px 18px; font: 14px/1.5 ui-monospace, Menlo, monospace; overflow-y: auto; }
+  .crash .err { color: #ff8a80; font-weight: 700; }
+  .crash .dim { color: #8b96ab; }
+  .crash .found { margin-top: 26px; padding: 14px; border: 2px dashed #ffbd44; border-radius: 10px; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
+  .crash .found b { display: block; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.4rem; color: #ffbd44; margin-bottom: 4px; }
   /* Donut drops in spinning; on collection a bite appears */
   .links a { display: block; text-align: center; text-decoration: none; margin: 10px 0 0; }
   .links a.btn { color: #fff; }
@@ -116,6 +124,8 @@
     <button id="sheetDone">Done</button>
   </div>
   <p class="banner bad" id="err" hidden></p>
+  <p class="foot"><b>commit-tea.</b> · nuscomputing.com<br><span id="bugHint">Found a bug? Tell the person at this stall.</span></p>
+  <div id="crash" class="crash" hidden></div>
 </main>
 <script src="/icons.js"></script>
 <script>
@@ -162,6 +172,8 @@ async function loadCfg() {
   }
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   showDonutsOut(cfg.donutsOut);
+  const techStall = cfg.stalls.find((s) => s.id === "presidential");
+  if (techStall) $("bugHint").textContent = `Found a bug? Tell the person at the ${techStall.name} stall.`;
   return true;
 }
 
@@ -310,6 +322,26 @@ function celebrate(stall, n, need) {
     [c, "#f59bb8", "#e9b872", "#365486"], done ? 2200 : 3000, [60, 40, 120], done ? complete : null);
 }
 $("stamped").onclick = endMoment;
+
+// The planted bug: tap the donut 5 times quickly and the page "crashes". It's a fake error screen
+// for the Tech Cell stall's spot-the-bug game. Nothing breaks; tapping closes it.
+let bugTaps = [];
+function donutTap() {
+  const now = Date.now();
+  bugTaps = bugTaps.filter((t) => now - t < 2500).concat(now);
+  if (bugTaps.length < 5) return;
+  bugTaps = [];
+  const tech = (cfg.stalls.find((s) => s.id === "presidential") || cfg.stalls[0]).name;
+  $("crash").innerHTML = `<div class="err">Uncaught TypeError: donut.eat is not a function</div>
+    <div class="dim">    at tapDonut (index.html:404)<br>    at HTMLDivElement.onclick (index.html:404)<br>    at welcomeTea (commit-tea.js:28)</div>
+    <div class="found"><b>You found the bug.</b>Show this screen at the ${esc(tech)} stall.${code && !$("card").hidden ? `<br>Card ${esc(code)}` : ""}<br><span style="color:#8b96ab">Tap anywhere to close.</span></div>`;
+  $("crash").hidden = false;
+  try { navigator.vibrate && navigator.vibrate([30, 30, 30, 30, 30]); } catch {}
+}
+$("crash").onclick = () => { $("crash").hidden = true; };
+$("donut").addEventListener("click", donutTap);
+$("startDonut").addEventListener("click", donutTap);
+console.log("%cLooking for bugs? The donut is a bit fragile.", "font: 600 14px sans-serif; color: #365486");
 
 function openSheet(intro) {
   $("sheetHead").textContent = intro ? "This is your stamp card QR" : "Your QR";
