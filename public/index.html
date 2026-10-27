@@ -48,21 +48,43 @@
   /* Footer and the planted "bug" (an easter egg, nothing actually breaks) */
   .foot { text-align: center; margin: 26px 0 6px; font-size: .85rem; color: var(--muted); }
   .foot b { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); }
-  .crash { position: fixed; inset: 0; z-index: 30; background: #1f2a44; color: #e8ecf3; padding: 24px 18px; font: 14px/1.5 ui-monospace, Menlo, monospace; overflow-y: auto; }
+  .crash { position: fixed; inset: 0; z-index: 30; background: #1f2a44; color: #e8ecf3; padding: max(18px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); font: 14px/1.5 ui-monospace, Menlo, monospace; overflow-y: auto; overscroll-behavior: contain; }
+  .crash-inner { max-width: 520px; margin: 0 auto; }
+  .crash-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; color: #ffbd44; font-weight: 700; }
+  .crash-close { flex: none; min-height: 40px; padding: 6px 12px; background: transparent; color: #e8ecf3; border-color: #8b96ab; box-shadow: none; }
+  .crash-close:hover, .crash-close:focus-visible { border-color: #ffbd44; }
   .crash .err { color: #ff8a80; font-weight: 700; }
-  .crash .dim { color: #8b96ab; }
-  .crash .found { margin-top: 26px; padding: 14px; border: 2px dashed #ffbd44; border-radius: 10px; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
+  .crash .dim { color: #b7c2d4; }
+  .crash .trace { margin-top: 12px; padding: 14px; background: #172238; border-radius: 10px; overflow-wrap: anywhere; }
+  .crash .found { margin-top: 24px; padding: 16px; border: 2px dashed #ffbd44; border-radius: 10px; background: #283653; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
+  .crash .code { color: #ffbd44; overflow-wrap: anywhere; }
   /* "Website corruption" before the crash: shake, flicker, scrambled text */
   body.glitch main { animation: shake .09s steps(2) infinite; }
   body.glitch.flip main { filter: invert(1); }
   @keyframes shake { 0% { transform: translate(-3px, 1px) skewX(-2deg); } 100% { transform: translate(3px, -2px) skewX(2deg); } }
   .quiz button { display: block; width: 100%; margin: 8px 0 0; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; }
+  .quiz button:focus-visible, .crash .row button:focus-visible { outline-color: #ffbd44; }
+  .crash .row { flex-wrap: wrap; }
+  .crash .row input { min-width: min(100%, 180px); }
+  .crash .row button { flex: 1 0 auto; }
+  .crash .feedback { min-height: 1.5em; }
+  .debug-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0 0 20px; font: 700 11px/1.3 "DM Sans", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .debug-steps span { padding: 8px 5px; border: 1px solid #66758e; border-radius: 6px; color: #b7c2d4; text-align: center; }
+  .debug-steps .done { border-color: #79d9a1; color: #79d9a1; }
+  .debug-steps .active { border-color: #ffbd44; background: #453b2b; color: #ffbd44; }
+  .test-result { margin: 14px 0; padding: 12px; border-left: 3px solid #79d9a1; background: #203b3a; }
+  .test-result strong { color: #a8efc3; }
+  @media (max-width: 400px) {
+    .crash .row { display: block; }
+    .crash .row button { width: 100%; margin-top: 10px; }
+  }
   .hearts { color: #ff605c; letter-spacing: 2px; margin-left: 6px; }
   .hearts .lost { color: #4a556d; }
   .quiz .q { font-weight: 700; margin: 6px 0 2px; }
   .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
   .squashedBadge { cursor: pointer; margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
-  .crash .row input { background: #fff; }
+  #donut[role="button"] { cursor: pointer; border-radius: 50%; touch-action: manipulation; }
+  #donut:focus-visible, #squashed:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
   .crash .found b { display: block; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.4rem; color: #ffbd44; margin-bottom: 4px; }
   /* Donut drops in spinning; on collection a bite appears */
   .links a { display: block; text-align: center; text-decoration: none; margin: 10px 0 0; }
@@ -119,7 +141,7 @@
       <h2>Your stamps</h2>
       <ul class="slots" id="slots"></ul>
       <p id="todo" class="todo" hidden>// TODO: stop people tapping the donut so much</p>
-      <p id="squashed" class="squashedBadge" hidden>Bug squashed. Tap to see your rank and certificate.</p>
+      <p id="squashed" class="squashedBadge" role="button" tabindex="0" hidden>Bug squashed. Tap to see your rank and certificate.</p>
     </div>
     <div class="card links" id="links" hidden></div>
     <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
@@ -138,7 +160,7 @@
   </div>
   <p class="banner bad" id="err" hidden></p>
   <p class="foot"><b>commit-tea.</b> · nuscomputing.com<span id="bugHint" hidden><br>Found a bug? Tell the person at this stall.</span></p>
-  <div id="crash" class="crash" hidden></div>
+  <div id="crash" class="crash" role="dialog" aria-modal="true" aria-label="Donut debugger" hidden></div>
 </main>
 <script src="/icons.js"></script>
 <script>
@@ -264,6 +286,9 @@ const stop = () => { clearInterval(timer); timer = null; };
 // intro: show the full-screen QR walkthrough first. Used for a new card and for logging back in with a code,
 // not for a plain reload of the card already on this phone.
 function openCard(c, intro = false) {
+  if (glitchCleanup) glitchCleanup();
+  if (!$("crash").hidden) closeCrash();
+  bugTaps = [];
   code = c; store.set("code", c); showErr(""); shown = null; $("qr").removeAttribute("src");
   document.body.classList.add("carding");
   history.replaceState(null, "", location.pathname);
@@ -276,7 +301,10 @@ function openCard(c, intro = false) {
     if (Date.now() - lastPoll >= gap) { lastPoll = Date.now(); refresh(); }
   }, 1000);
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden && timer) refresh(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && glitchCleanup) glitchCleanup();
+  if (!document.hidden && timer) refresh();
+});
 // The start screen has no card to poll, so read the current stock status separately.
 setInterval(() => {
   if (document.hidden || $("start").hidden) return;
@@ -357,12 +385,35 @@ const fixWordFor = (c) => FIX_WORDS[[...String(c)].reduce((h, ch) => (h * 31 + c
 const hasTech = () => !!(view && view.stamps.includes(TECH_ID) && !$("card").hidden);
 const squashedKey = () => "squashed:" + code;
 let bugTaps = [], wrongTries = 0;
+let glitchTimer = null, glitchCleanup = null, crashReturnFocus = null;
+const crashHeader = `<div class="crash-head"><span>commit-tea. / debugger</span><button class="crash-close" type="button" aria-label="Close debugger">Close ×</button></div>`;
+const debugSteps = `<div class="debug-steps" aria-label="Debugging progress"><span>01 Find</span><span>02 Patch</span><span>03 Verify</span></div>`;
+function setDebugStage(stage) {
+  $("crash").querySelectorAll(".debug-steps span").forEach((item, i) => {
+    item.classList.toggle("done", i < stage);
+    item.classList.toggle("active", i === stage);
+    if (i === stage) item.setAttribute("aria-current", "step"); else item.removeAttribute("aria-current");
+  });
+}
 
 function updateBugClues() {
   const on = hasTech();
+  const solved = on && !!store.get(squashedKey());
   $("bugHint").hidden = !on; // the bug line only appears once they've been to the Tech Cell stall
-  $("todo").hidden = !on || !!store.get(squashedKey());
-  $("squashed").hidden = !on || !store.get(squashedKey());
+  $("todo").hidden = !on || solved;
+  $("squashed").hidden = !solved;
+  const donut = $("donut");
+  if (on && !solved) {
+    donut.tabIndex = 0;
+    donut.setAttribute("role", "button");
+    donut.setAttribute("aria-label", "Donut. Tap five times quickly to investigate the bug.");
+    donut.setAttribute("aria-describedby", "todo");
+  } else {
+    donut.removeAttribute("tabindex");
+    donut.removeAttribute("role");
+    donut.removeAttribute("aria-label");
+    donut.removeAttribute("aria-describedby");
+  }
   if (on && !window.__bugHinted) {
     window.__bugHinted = true;
     console.log("%cLooking for bugs? The donut is a bit fragile.", "font: 600 14px sans-serif; color: #365486");
@@ -371,12 +422,13 @@ function updateBugClues() {
 }
 
 function donutTap() {
-  if (!hasTech()) return; // no Tech Cell stamp yet: the donut is just a donut
+  if (!hasTech() || store.get(squashedKey()) || glitchTimer || !$("crash").hidden) return;
   const now = Date.now();
   bugTaps = bugTaps.filter((t) => now - t < 2500).concat(now);
   if (bugTaps.length < 5) return;
   bugTaps = []; wrongTries = 0;
-  corrupt(showCrash);
+  const cardCode = code;
+  corrupt(() => { if (code === cardCode && hasTech()) showCrash(); });
 }
 
 // Scramble every bit of text on the page for a moment, then put it back and run next().
@@ -385,20 +437,30 @@ function corrupt(next) {
   const JUNK = "#%&*@!?<>/\\|{}[]01$^~";
   const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
   const nodes = [];
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue.trim()) nodes.push([n, n.nodeValue]);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (n.nodeValue.trim() && !n.parentElement.closest("[hidden], #crash, #sheet, #stamped")) nodes.push([n, n.nodeValue, n.nodeValue]);
+  }
   document.body.classList.add("glitch");
   try { navigator.vibrate && navigator.vibrate([40, 30, 40, 30, 80, 30, 120]); } catch {}
   let frame = 0;
-  const tick = setInterval(() => {
+  glitchCleanup = () => {
+    clearInterval(glitchTimer);
+    glitchTimer = null;
+    for (const entry of nodes) if (entry[0].nodeValue === entry[2]) entry[0].nodeValue = entry[1];
+    document.body.classList.remove("glitch", "flip");
+    glitchCleanup = null;
+  };
+  glitchTimer = setInterval(() => {
     frame++;
     const amount = Math.min(1, frame / 8); // more of the page breaks each frame
-    for (const [n, orig] of nodes)
-      n.nodeValue = [...orig].map((ch) => (ch !== " " && Math.random() < amount ? JUNK[(Math.random() * JUNK.length) | 0] : ch)).join("");
+    for (const entry of nodes) {
+      if (entry[0].nodeValue !== entry[2]) continue;
+      entry[2] = [...entry[1]].map((ch) => (ch !== " " && Math.random() < amount ? JUNK[(Math.random() * JUNK.length) | 0] : ch)).join("");
+      entry[0].nodeValue = entry[2];
+    }
     document.body.classList.toggle("flip", frame % 3 === 0);
     if (frame < 12) return;
-    clearInterval(tick);
-    for (const [n, orig] of nodes) n.nodeValue = orig;
-    document.body.classList.remove("glitch", "flip");
+    glitchCleanup();
     next();
   }, 120);
 }
@@ -410,17 +472,22 @@ function showCrash() {
     const opts = STEPS[ch]; seen[ch] = (seen[ch] || 0) + 1;
     return `    at ${opts[(seen[ch] - 1) % opts.length]} (donut.js:${404 + i * 17})`;
   }).join("<br>");
-  $("crash").innerHTML = `<div class="err">Uncaught TypeError: donut.eat is not a function</div>
-    <div class="dim">${trace}</div>
-    <div class="found"><b>Patch required</b>Something in that stack trace is the fix. Type it to patch the donut.
-      <div class="row"><input id="fixIn" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="the fix"><button id="fixGo">Apply patch</button></div>
-      <div id="fixMsg" class="dim"></div>
-      <span class="dim">Tap outside this box to close.</span></div>`;
-  $("crash").hidden = false;
+  openCrashShell(`<div class="err">Uncaught TypeError: donut.eat is not a function</div>
+    <div class="trace dim">${trace}</div>
+    <div class="found"><b>Patch required</b><p>Something in that stack trace is the fix. Type it to patch the donut.</p>
+      <div class="row"><input id="fixIn" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="The fix" aria-label="Fix word"><button id="fixGo" type="button">Apply patch</button></div>
+      <div id="fixMsg" class="feedback dim" role="status" aria-live="polite"></div></div>`);
+  setDebugStage(1);
   try { navigator.vibrate && navigator.vibrate([30, 30, 30, 30, 30]); } catch {}
   $("fixGo").onclick = () => tryFix(word);
   $("fixIn").onkeydown = (e) => { if (e.key === "Enter") tryFix(word); };
-  $("crash").querySelector(".found").onclick = (e) => e.stopPropagation();
+  (window.matchMedia && matchMedia("(pointer: coarse)").matches ? $("crash").querySelector(".crash-close") : $("fixIn")).focus();
+}
+
+function openCrashShell(content) {
+  crashReturnFocus = document.activeElement;
+  $("crash").innerHTML = `<div class="crash-inner">${crashHeader}${debugSteps}${content}</div>`;
+  $("crash").hidden = false;
 }
 
 function tryFix(word) {
@@ -437,23 +504,30 @@ function tryFix(word) {
 
 // Stage 2: four questions, chosen per card, with 3 hearts. A wrong answer costs a heart; none left is game over.
 const QUIZ = [
-  ["In JavaScript, what is 0.1 + 0.2 === 0.3?", ["false", "true", "TypeError"]],
-  ["In JavaScript, what does typeof null return?", ['"object"', '"null"', '"undefined"']],
-  ["What is 1011 + 0110 in binary?", ["10001", "1111", "10101"]],
-  ["In Python, what does print(0b101 << 2) output?", ["20", "10", "7"]],
-  ["Which sort is O(n log n) even in the worst case?", ["Merge sort", "Quicksort", "Insertion sort"]],
-  ["Average time to look up a key in a hash table?", ["O(1)", "O(log n)", "O(n)"]],
-  ["In Python, what is [1, 2, 3][-1]?", ["3", "1", "IndexError"]],
-  ["What does git reset --hard HEAD~1 do?", ["Throws away the last commit and its changes", "Pushes the last commit", "Renames the current branch"]],
-  ["What does git rebase main do on your branch?", ["Replays your commits on top of main", "Deletes main", "Merges your branch into main"]],
-  ["Which of these is NOT a standard HTTP method?", ["FETCH", "PATCH", "OPTIONS"]],
-  ["Which HTTP status code is \"I'm a teapot\"?", ["418", "419", "451"]],
-  ["What year was the NUS Students' Computing Club founded?", ["1998", "2005", "1985"]],
+  ["In JavaScript, what is 0.1 + 0.2 === 0.3?", ["false", "true", "TypeError"], "Binary floating point cannot represent those decimals exactly."],
+  ["In JavaScript, what does typeof null return?", ['"object"', '"null"', '"undefined"'], "A long-standing JavaScript quirk reports null as an object."],
+  ["What is 1011 + 0110 in binary?", ["10001", "1111", "10101"], "11 + 6 = 17, which is 10001 in binary."],
+  ["In Python, what does print(0b101 << 2) output?", ["20", "10", "7"], "Shifting 5 left by two bits multiplies it by four."],
+  ["Which sort is O(n log n) even in the worst case?", ["Merge sort", "Quicksort", "Insertion sort"], "Merge sort splits the input and combines it in linear work per level."],
+  ["Average time to look up a key in a hash table?", ["O(1)", "O(log n)", "O(n)"], "A hash points to the key's bucket in constant time on average."],
+  ["In Python, what is [1, 2, 3][-1]?", ["3", "1", "IndexError"], "Index -1 reads the final item in a Python list."],
+  ["What does git reset --hard HEAD~1 do?", ["Throws away the last commit and its changes", "Pushes the last commit", "Renames the current branch"], "The branch moves back one commit and the worktree is reset to match."],
+  ["What does git rebase main do on your branch?", ["Replays your commits on top of main", "Deletes main", "Merges your branch into main"], "Rebase reapplies your branch's commits after the tip of main."],
+  ["Which of these is NOT a standard HTTP method?", ["FETCH", "PATCH", "OPTIONS"], "FETCH is a browser API name, not an HTTP request method."],
+  ["Which HTTP status code is \"I'm a teapot\"?", ["418", "419", "451"], "418 is the deliberately playful teapot status code."],
+  ["Which command shows changed files in your Git worktree?", ["git status", "git push", "git clone"], "git status reports staged, unstaged, and untracked files."],
 ];
 function runQuiz(word) {
+  setDebugStage(2);
   const seed = [...String(code)].reduce((h, ch) => (h * 33 + ch.charCodeAt(0)) >>> 0, 11);
-  const picks = [0, 1, 2, 3].map((k) => (seed + k * 3) % QUIZ.length).filter((v, i, a) => a.indexOf(v) === i);
-  while (picks.length < 4) picks.push((picks[picks.length - 1] + 1) % QUIZ.length);
+  const picks = QUIZ.map((_, i) => i);
+  let shuffle = seed;
+  for (let i = picks.length - 1; i > 0; i--) {
+    shuffle = (Math.imul(shuffle, 1664525) + 1013904223) >>> 0;
+    const j = shuffle % (i + 1);
+    [picks[i], picks[j]] = [picks[j], picks[i]];
+  }
+  picks.length = 4;
   let step = 0, hearts = 3;
   const box = $("crash").querySelector(".found");
   const heartRow = () => `<span class="hearts" aria-label="${hearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(3 - hearts)}</span></span>`;
@@ -461,21 +535,28 @@ function runQuiz(word) {
   const loseHeart = () => {
     hearts--;
     if (hearts > 0) return ask(`Wrong. ${hearts} heart${hearts === 1 ? "" : "s"} left.`);
-    box.innerHTML = `<b>Out of hearts.</b>The donut crashed for good. Close this and tap the donut 5 times to try again.<br><span class="dim">Tap outside this box to close.</span>`;
+    box.innerHTML = `<b>Tests failed.</b><p>You're out of hearts. Restart the debugger to try a fresh run.</p><button id="retryBug" type="button">Try again</button>`;
+    $("retryBug").onclick = () => { closeCrash(); $("donut").focus(); };
+    $("retryBug").focus();
   };
   const ask = (msg) => {
     if (step >= picks.length) return finishBug(word);
-    const [q, opts] = QUIZ[picks[step]];
+    const [q, opts, why] = QUIZ[picks[step]];
     // Shuffle answers per card so the right one isn't always first.
     const rot = (seed + step * 7) % opts.length;
     const order = opts.map((o, i) => [o, i]).map((_, j, all) => all[(j + rot) % all.length]);
-    box.innerHTML = `<b>Patch accepted. Running tests (${step + 1}/${picks.length}) ${heartRow()}</b>
+    box.innerHTML = `<b>Patch accepted · test ${step + 1} of ${picks.length} ${heartRow()}</b>
       <div class="quiz"><p class="q">${esc(q)}</p>${order.map(([o, i]) => `<button data-ok="${i === 0 ? 1 : 0}">${esc(o)}</button>`).join("")}</div>
-      <div class="dim">${msg || ""}</div><span class="dim">Tap outside this box to close.</span>`;
+      <div class="feedback dim" role="status" aria-live="polite">${msg || ""}</div>`;
     box.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
-      if (btn.dataset.ok === "1") { step++; ask(""); }
+      if (btn.dataset.ok === "1") {
+        box.innerHTML = `<b>Test ${step + 1} passed ${heartRow()}</b><div class="test-result"><strong>Why it passes</strong><br>${esc(why)}</div><button id="nextTest" type="button">${step + 1 === picks.length ? "Finish verification" : "Next test"}</button>`;
+        $("nextTest").onclick = () => { step++; ask(""); };
+        $("nextTest").focus();
+      }
       else { try { navigator.vibrate && navigator.vibrate(120); } catch {} loseHeart(); }
     }));
+    box.querySelector("button")?.focus();
   };
   ask("");
 }
@@ -483,40 +564,47 @@ function runQuiz(word) {
 // Solved: ask for a Hall of Fame name, register it (the server re-checks the word and the Tech stamp),
 // then show their rank and a certificate they can save.
 function finishBug(word) {
+  setDebugStage(2);
   store.set(squashedKey(), "1");
   try { navigator.vibrate && navigator.vibrate([60, 40, 60, 40, 200]); } catch {}
   updateBugClues();
   const box = $("crash").querySelector(".found");
-  box.innerHTML = `<b>Bug squashed.</b>Patch "${esc(word.toLowerCase())}" applied. You're going in the Hall of Fame.
-    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen"><button id="hallGo">Save</button></div>
-    <span class="dim">Shown on the screen at the Tech Cell stall. Leave it empty to stay anonymous.</span>`;
+  box.innerHTML = `<b>Bug squashed.</b><p>Patch “${esc(word.toLowerCase())}” applied. You're going in the Hall of Fame.</p>
+    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen" aria-label="Hall of Fame name"><button id="hallGo" type="button">Save</button></div>
+    <span class="dim">Shown on the screen at the Tech Cell stall. Leave it empty to stay anonymous.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
   $("hallName").value = (view && view.nickname) || "";
   $("hallGo").onclick = () => registerSquash(word, $("hallName").value);
   $("hallName").onkeydown = (e) => { if (e.key === "Enter") registerSquash(word, $("hallName").value); };
+  (window.matchMedia && matchMedia("(pointer: coarse)").matches ? $("crash").querySelector(".crash-close") : $("hallName")).focus();
 }
 
 async function registerSquash(word, name) {
-  const box = $("crash").querySelector(".found");
+  const cardCode = code;
+  if ($("hallGo").disabled) return;
   $("hallGo").disabled = true;
   let r;
   try {
-    r = await api(`/api/cards/${code}/squash`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ word, name }) });
+    r = await api(`/api/cards/${cardCode}/squash`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ word, name }) });
   } catch (e) {
-    $("hallGo").disabled = false;
-    box.insertAdjacentHTML("beforeend", `<div class="dim">Couldn't save (${esc(e.message)}). Check your wifi and try again.</div>`);
+    if (code === cardCode && $("hallGo")) {
+      $("hallGo").disabled = false;
+      $("hallMsg").textContent = `Couldn't save (${e.message}). Check your wifi and try again.`;
+    }
     return;
   }
-  store.set("squashRank:" + code, JSON.stringify(r));
-  showSquashed(r);
+  store.set("squashRank:" + cardCode, JSON.stringify(r));
+  if (code === cardCode && !$("crash").hidden && $("crash").querySelector(".found")) showSquashed(r);
 }
 
 function showSquashed(r) {
   const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
   $("crash").hidden = false;
-  $("crash").querySelector(".found").innerHTML = `<b>#${r.rank} to squash the donut bug</b>${esc(r.name)}, you're in the Hall of Fame.
-    <div class="row"><button id="certGo">Save my certificate</button></div>
-    Show this screen at the ${esc(tech)} stall.<br>Card ${esc(code)}<br><span class="dim">Tap outside this box to close.</span>`;
+  setDebugStage(2);
+  $("crash").querySelector(".found").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>
+    <div class="row"><button id="certGo" type="button">Save my certificate</button></div>
+    <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
   $("certGo").onclick = () => saveCertificate(r);
+  $("certGo").focus();
 }
 
 // Certificate as a PNG drawn on a canvas, so it saves to the phone's photos.
@@ -550,15 +638,34 @@ function saveCertificate(r) {
   logo.src = "/logo.png";
 }
 
-$("crash").onclick = () => { $("crash").hidden = true; };
-$("squashed").onclick = () => {
+function closeCrash() {
+  $("crash").hidden = true;
+  if (crashReturnFocus?.isConnected && crashReturnFocus?.tabIndex >= 0) crashReturnFocus.focus();
+  else if (!$("card").hidden) $("qrOpen").focus();
+  crashReturnFocus = null;
+}
+$("crash").onclick = (e) => { if (e.target === $("crash") || e.target.closest(".crash-close")) closeCrash(); };
+$("crash").onkeydown = (e) => {
+  if (e.key === "Escape") { e.preventDefault(); closeCrash(); }
+  if (e.key !== "Tab") return;
+  const items = [...$("crash").querySelectorAll("button, input")];
+  const index = items.indexOf(document.activeElement);
+  if (index < 0) { e.preventDefault(); items[e.shiftKey ? items.length - 1 : 0]?.focus(); return; }
+  if (e.shiftKey && index === 0) { e.preventDefault(); items.at(-1).focus(); }
+  if (!e.shiftKey && index === items.length - 1) { e.preventDefault(); items[0].focus(); }
+};
+function openSquashed() {
   let r = null;
   try { r = JSON.parse(store.get("squashRank:" + code) || "null"); } catch {}
+  openCrashShell(`<div class="found"></div>`);
   if (r) { showSquashed(r); return; }
   // Solved but the name wasn't saved yet (say the wifi dropped): ask again.
-  showCrash(); finishBug(fixWordFor(code));
-};
+  finishBug(fixWordFor(code));
+}
+$("squashed").onclick = openSquashed;
+$("squashed").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSquashed(); } };
 $("donut").addEventListener("click", donutTap);
+$("donut").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); donutTap(); } });
 
 function openSheet(intro) {
   $("sheetHead").textContent = intro ? "This is your stamp card QR" : "Your QR";
