@@ -137,7 +137,7 @@
     <button id="sheetDone">Done</button>
   </div>
   <p class="banner bad" id="err" hidden></p>
-  <p class="foot"><b>commit-tea.</b> · nuscomputing.com<br><span id="bugHint">Found a bug? Tell the person at this stall.</span></p>
+  <p class="foot"><b>commit-tea.</b> · nuscomputing.com<span id="bugHint" hidden><br>Found a bug? Tell the person at this stall.</span></p>
   <div id="crash" class="crash" hidden></div>
 </main>
 <script src="/icons.js"></script>
@@ -186,7 +186,7 @@ async function loadCfg() {
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   showDonutsOut(cfg.donutsOut);
   const techStall = cfg.stalls.find((s) => s.id === "presidential");
-  if (techStall) $("bugHint").textContent = `Found a bug? Tell the person at the ${techStall.name} stall.`;
+  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.`;
   return true;
 }
 
@@ -243,7 +243,7 @@ async function refresh() {
     store.set("view:" + code, JSON.stringify(view));
     $("status").hidden = true;
   } catch (e) {
-    if (e.status === 404) { stop(); store.del("code"); document.body.classList.remove("carding"); $("card").hidden = true; $("start").hidden = false; showErr("No card with code " + code + ". Check it, or get a new card."); return; }
+    if (e.status === 404) { stop(); store.del("code"); document.body.classList.remove("carding"); $("card").hidden = true; $("bugHint").hidden = true; $("start").hidden = false; showErr("No card with code " + code + ". Check it, or get a new card."); return; }
     $("status").hidden = false;
     $("status").textContent = "Can't reach the server. Showing your last saved card. It updates when the wifi is back.";
     if (!view) { try { view = JSON.parse(store.get("view:" + code) || "null"); } catch {} }
@@ -360,6 +360,7 @@ let bugTaps = [], wrongTries = 0;
 
 function updateBugClues() {
   const on = hasTech();
+  $("bugHint").hidden = !on; // the bug line only appears once they've been to the Tech Cell stall
   $("todo").hidden = !on || !!store.get(squashedKey());
   $("squashed").hidden = !on || !store.get(squashedKey());
   if (on && !window.__bugHinted) {
