@@ -52,6 +52,9 @@
   .crash .err { color: #ff8a80; font-weight: 700; }
   .crash .dim { color: #8b96ab; }
   .crash .found { margin-top: 26px; padding: 14px; border: 2px dashed #ffbd44; border-radius: 10px; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
+  .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
+  .squashedBadge { margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
+  .crash .row input { background: #fff; }
   .crash .found b { display: block; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.4rem; color: #ffbd44; margin-bottom: 4px; }
   /* Donut drops in spinning; on collection a bite appears */
   .links a { display: block; text-align: center; text-decoration: none; margin: 10px 0 0; }
@@ -107,6 +110,8 @@
     <div class="card">
       <h2>Your stamps</h2>
       <ul class="slots" id="slots"></ul>
+      <p id="todo" class="todo" hidden>// TODO: stop people tapping the donut so much</p>
+      <p id="squashed" class="squashedBadge" hidden>Bug squashed. Show this at the Tech Cell stall.</p>
     </div>
     <div class="card links" id="links" hidden></div>
     <p class="muted"><a href="#" id="forget">Not your card? Start over</a></p>
@@ -211,6 +216,7 @@ function render() {
   if (added.length && firstDone) celebrate(added[added.length - 1], n, need);
   if (firstDone && view.donutClaimed && !beforeClaimed) celebrateDonut();
   firstDone = true;
+  updateBugClues();
   const [h, sub] = words(view);
   $("headline").textContent = h; $("subline").textContent = sub;
 
@@ -323,25 +329,85 @@ function celebrate(stall, n, need) {
 }
 $("stamped").onclick = endMoment;
 
-// The planted bug: tap the donut 5 times quickly and the page "crashes". It's a fake error screen
-// for the Tech Cell stall's spot-the-bug game. Nothing breaks; tapping closes it.
-let bugTaps = [];
+// Bug hunt for the Tech Cell stall. All of it is a game: nothing actually breaks and the server isn't involved.
+// 1. Locked until the card has the Tech Cell stamp.
+// 2. Then a "leftover" TODO comment appears under the stamps, hinting at the donut.
+// 3. Tapping the donut 5 times quickly shows a fake crash whose stack trace spells the fix (first letters).
+// 4. The word differs per card, so sharing a screenshot of the answer doesn't help.
+// 5. Solving it leaves a "Bug squashed" badge on the card to show at the stall.
+const TECH_ID = "presidential";
+const FIX_WORDS = ["COMMIT", "MERGE", "PATCH", "DEBUG", "BRANCH", "DEPLOY", "REBASE", "PUSH"];
+const STEPS = {
+  A: ["addSprinkles", "applyGlaze"], B: ["bakeDough", "boxDonut"], C: ["cookDonut", "coatIcing"],
+  D: ["dipChocolate", "drainOil"], E: ["eatDonut", "eggWash"], G: ["glazeTop", "grabNapkin"],
+  H: ["heatOil", "holdTray"], I: ["icingCheck", "inspectRing"], L: ["layerCream", "lickSpoon"],
+  M: ["mixDough", "meltSugar"], N: ["nibbleEdge", "napkinFold"], O: ["openBox", "ovenPreheat"],
+  P: ["proofDough", "pipeFilling"], R: ["rollDough", "restDough"], S: ["sprinkleTop", "sliceDonut"],
+  T: ["toppingsAdd", "tasteTest"], U: ["unboxDonut", "useTongs"], Y: ["yeastCheck", "yankTray"],
+};
+const fixWordFor = (c) => FIX_WORDS[[...String(c)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % FIX_WORDS.length];
+const hasTech = () => !!(view && view.stamps.includes(TECH_ID) && !$("card").hidden);
+const squashedKey = () => "squashed:" + code;
+let bugTaps = [], wrongTries = 0;
+
+function updateBugClues() {
+  const on = hasTech();
+  $("todo").hidden = !on || !!store.get(squashedKey());
+  $("squashed").hidden = !on || !store.get(squashedKey());
+  if (on && !window.__bugHinted) {
+    window.__bugHinted = true;
+    console.log("%cLooking for bugs? The donut is a bit fragile.", "font: 600 14px sans-serif; color: #365486");
+    window.donut = { eat() { console.log("TypeError: donut.eat is not a function. Nice try. Go tap the actual donut."); } };
+  }
+}
+
 function donutTap() {
+  if (!hasTech()) return; // no Tech Cell stamp yet: the donut is just a donut
   const now = Date.now();
   bugTaps = bugTaps.filter((t) => now - t < 2500).concat(now);
   if (bugTaps.length < 5) return;
-  bugTaps = [];
-  const tech = (cfg.stalls.find((s) => s.id === "presidential") || cfg.stalls[0]).name;
+  bugTaps = []; wrongTries = 0;
+  showCrash();
+}
+
+function showCrash() {
+  const word = fixWordFor(code);
+  const seen = {};
+  const trace = [...word].map((ch, i) => {
+    const opts = STEPS[ch]; seen[ch] = (seen[ch] || 0) + 1;
+    return `    at ${opts[(seen[ch] - 1) % opts.length]} (donut.js:${404 + i * 17})`;
+  }).join("<br>");
   $("crash").innerHTML = `<div class="err">Uncaught TypeError: donut.eat is not a function</div>
-    <div class="dim">    at tapDonut (index.html:404)<br>    at HTMLDivElement.onclick (index.html:404)<br>    at welcomeTea (commit-tea.js:28)</div>
-    <div class="found"><b>You found the bug.</b>Show this screen at the ${esc(tech)} stall.${code && !$("card").hidden ? `<br>Card ${esc(code)}` : ""}<br><span style="color:#8b96ab">Tap anywhere to close.</span></div>`;
+    <div class="dim">${trace}</div>
+    <div class="found"><b>Patch required</b>Something in that stack trace is the fix. Type it to patch the donut.
+      <div class="row"><input id="fixIn" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="the fix"><button id="fixGo">Apply patch</button></div>
+      <div id="fixMsg" class="dim"></div>
+      <span class="dim">Tap outside this box to close.</span></div>`;
   $("crash").hidden = false;
   try { navigator.vibrate && navigator.vibrate([30, 30, 30, 30, 30]); } catch {}
+  $("fixGo").onclick = () => tryFix(word);
+  $("fixIn").onkeydown = (e) => { if (e.key === "Enter") tryFix(word); };
+  $("crash").querySelector(".found").onclick = (e) => e.stopPropagation();
 }
+
+function tryFix(word) {
+  const guess = $("fixIn").value.toUpperCase().replace(/[^A-Z]/g, "");
+  if (guess !== word) {
+    wrongTries++;
+    $("fixMsg").textContent = wrongTries >= 2
+      ? "Patch rejected: tests failing. Hint: read the stack from the top, first letters only."
+      : "Patch rejected: tests failing.";
+    return;
+  }
+  store.set(squashedKey(), "1");
+  const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
+  $("crash").querySelector(".found").innerHTML = `<b>Bug squashed.</b>Patch "${esc(word.toLowerCase())}" applied.<br>Show this screen at the ${esc(tech)} stall.<br>Card ${esc(code)}<br><span class="dim">Tap outside this box to close.</span>`;
+  try { navigator.vibrate && navigator.vibrate([60, 40, 60, 40, 200]); } catch {}
+  updateBugClues();
+}
+
 $("crash").onclick = () => { $("crash").hidden = true; };
 $("donut").addEventListener("click", donutTap);
-$("startDonut").addEventListener("click", donutTap);
-console.log("%cLooking for bugs? The donut is a bit fragile.", "font: 600 14px sans-serif; color: #365486");
 
 function openSheet(intro) {
   $("sheetHead").textContent = intro ? "This is your stamp card QR" : "Your QR";
