@@ -52,6 +52,12 @@
   .crash .err { color: #ff8a80; font-weight: 700; }
   .crash .dim { color: #8b96ab; }
   .crash .found { margin-top: 26px; padding: 14px; border: 2px dashed #ffbd44; border-radius: 10px; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
+  /* "Website corruption" before the crash: shake, flicker, scrambled text */
+  body.glitch main { animation: shake .09s steps(2) infinite; }
+  body.glitch.flip main { filter: invert(1); }
+  @keyframes shake { 0% { transform: translate(-3px, 1px) skewX(-2deg); } 100% { transform: translate(3px, -2px) skewX(2deg); } }
+  .quiz button { display: block; width: 100%; margin: 8px 0 0; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; }
+  .quiz .q { font-weight: 700; margin: 6px 0 2px; }
   .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
   .squashedBadge { margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
   .crash .row input { background: #fff; }
@@ -367,7 +373,31 @@ function donutTap() {
   bugTaps = bugTaps.filter((t) => now - t < 2500).concat(now);
   if (bugTaps.length < 5) return;
   bugTaps = []; wrongTries = 0;
-  showCrash();
+  corrupt(showCrash);
+}
+
+// Scramble every bit of text on the page for a moment, then put it back and run next().
+function corrupt(next) {
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return next();
+  const JUNK = "#%&*@!?<>/\\|{}[]01$^~";
+  const walker = document.createTreeWalker(document.querySelector("main"), NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue.trim()) nodes.push([n, n.nodeValue]);
+  document.body.classList.add("glitch");
+  try { navigator.vibrate && navigator.vibrate([40, 30, 40, 30, 80, 30, 120]); } catch {}
+  let frame = 0;
+  const tick = setInterval(() => {
+    frame++;
+    const amount = Math.min(1, frame / 8); // more of the page breaks each frame
+    for (const [n, orig] of nodes)
+      n.nodeValue = [...orig].map((ch) => (ch !== " " && Math.random() < amount ? JUNK[(Math.random() * JUNK.length) | 0] : ch)).join("");
+    document.body.classList.toggle("flip", frame % 3 === 0);
+    if (frame < 12) return;
+    clearInterval(tick);
+    for (const [n, orig] of nodes) n.nodeValue = orig;
+    document.body.classList.remove("glitch", "flip");
+    next();
+  }, 120);
 }
 
 function showCrash() {
@@ -399,6 +429,43 @@ function tryFix(word) {
       : "Patch rejected: tests failing.";
     return;
   }
+  runQuiz(word);
+}
+
+// Stage 2: three quick questions, chosen per card. A wrong answer just fails the test; try again.
+const QUIZ = [
+  ["Which git command saves your staged changes?", ["git commit", "git push", "git clone"]],
+  ["What does HTTP 404 mean?", ["Not found", "Server crashed", "Too many requests"]],
+  ["What is 101 in binary, written in decimal?", ["5", "3", "101"]],
+  ["What does CSS stand for?", ["Cascading Style Sheets", "Computer Style System", "Creative Script Syntax"]],
+  ["An array has 5 items. Counting from 0, what index is the last one?", ["4", "5", "6"]],
+  ["Which wing is Tech Cell part of?", ["Presidential", "Student Life", "External Relations"]],
+  ["What does SoC stand for here?", ["School of Computing", "System on a Chip", "Society of Coders"]],
+];
+function runQuiz(word) {
+  const seed = [...String(code)].reduce((h, ch) => (h * 33 + ch.charCodeAt(0)) >>> 0, 11);
+  const picks = [0, 1, 2].map((k) => (seed + k * 3) % QUIZ.length).filter((v, i, a) => a.indexOf(v) === i);
+  while (picks.length < 3) picks.push((picks[picks.length - 1] + 1) % QUIZ.length);
+  let step = 0;
+  const box = $("crash").querySelector(".found");
+  const ask = (msg) => {
+    if (step >= picks.length) return finishBug(word);
+    const [q, opts] = QUIZ[picks[step]];
+    // Shuffle answers per card so the right one isn't always first.
+    const rot = (seed + step * 7) % opts.length;
+    const order = opts.map((o, i) => [o, i]).map((_, j, all) => all[(j + rot) % all.length]);
+    box.innerHTML = `<b>Patch accepted. Running tests (${step + 1}/${picks.length})</b>
+      <div class="quiz"><p class="q">${esc(q)}</p>${order.map(([o, i]) => `<button data-ok="${i === 0 ? 1 : 0}">${esc(o)}</button>`).join("")}</div>
+      <div class="dim">${msg || ""}</div><span class="dim">Tap outside this box to close.</span>`;
+    box.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
+      if (btn.dataset.ok === "1") { step++; ask(""); }
+      else { try { navigator.vibrate && navigator.vibrate(120); } catch {} ask("Test failed. Try again."); }
+    }));
+  };
+  ask("");
+}
+
+function finishBug(word) {
   store.set(squashedKey(), "1");
   const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
   $("crash").querySelector(".found").innerHTML = `<b>Bug squashed.</b>Patch "${esc(word.toLowerCase())}" applied.<br>Show this screen at the ${esc(tech)} stall.<br>Card ${esc(code)}<br><span class="dim">Tap outside this box to close.</span>`;

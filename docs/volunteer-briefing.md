@@ -38,3 +38,13 @@ If you gave a donut to the wrong card, tap **Undo (wrong card)**.
 
 ## If you lose your phone or someone sees your QR
 Tell the Tech Lead. They'll make a new key, and your old login will stop working.
+
+## Tech Cell stall only: the bug hunt
+Once a card has the Tech Cell stamp, a hidden bug unlocks on the attendee's card page. Don't give it away. Point at the sign and say "there's a bug in the site, find it".
+- Clue on their card: a grey line under the stamps, `// TODO: stop people tapping the donut so much`.
+- Tapping the donut 5 times fast makes the site "corrupt", then crash.
+- The fix word is spelled by the first letters of the stack trace. It's different for every card.
+- Then 3 quick quiz questions.
+- Solved: their screen says **Bug squashed** with their card code, and a "Bug squashed" badge stays on their card.
+
+If they're stuck: first hint "read the error carefully", second hint "first letters, top to bottom". Give the reward when you see the Bug squashed screen or badge.
