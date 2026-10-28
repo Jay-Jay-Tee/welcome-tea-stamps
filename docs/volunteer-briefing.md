@@ -42,10 +42,10 @@ Tell the Tech Lead. They'll make a new key, and your old login will stop working
 ## Tech Cell stall only: the bug hunt
 Once a card has the Tech Cell stamp, a hidden bug unlocks on the attendee's card page. Don't give it away. Point at the sign and say "there's a bug in the site, find it".
 - Clue on their card: a grey line under the stamps, `// TODO: stop people tapping the donut so much`.
-- Tapping the donut 5 times fast makes the site "corrupt", then crash.
-- The fix word is spelled by the first letters of the stack trace. It's different for every card.
-- Then 7 card-specific debugging checks across JavaScript, Python, Git, HTTP, SQL, CSS, stamp-card logic, and web security. Some need a typed answer. They have 4 hearts; a wrong answer costs one. Out of hearts means starting again from the 5 taps.
-- Solved: they pick a name for the Hall of Fame and see their rank ("#3 to squash the donut bug") plus a certificate preview and PNG download. A "Bug squashed" badge stays on their card; tapping it brings the rank and certificate back.
+- Tapping the donut 5 times fast makes the site "corrupt", then opens a repair lab. The real card and donut stock do not change.
+- They run the broken donut, find the first bad log line, choose a one-line fix, and work through 3 short scenarios. The scenario varies by card. Wrong answers can be retried; a hint appears after 2 misses on one step.
+- Progress is saved on the server, so they can reload and continue. The repair lab needs wifi, but the stamp card still works from its cache.
+- Solved: they pick a name for the Hall of Fame and see their rank ("#3 to squash the donut bug") plus a certificate preview and PNG download. A "Bug squashed" badge stays on their card; tapping it brings the rank and certificate back. Earlier Hall entries keep their rank.
 - Keep `/hall.html` open on a laptop or screen at the stall. It shows every solver in order and updates by itself.
 
-If they're stuck: first hint "read the error carefully", second hint "first letters, top to bottom". Give the reward when you see the Bug squashed screen or badge.
+If they're stuck, ask what should happen when a tap is repeated or stock is empty. Give the reward when you see the Bug squashed screen or badge.

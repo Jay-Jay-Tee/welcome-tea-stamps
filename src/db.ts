@@ -54,4 +54,11 @@ export async function migrate(pool: Pool) {
     name text not null,
     solved_at timestamptz default now()
   )`);
+  await create("bug_missions", `create table bug_missions (
+    attendee_id int primary key,
+    seed int not null,
+    stage int not null default 0,
+    attempts int not null default 0,
+    completed_at timestamptz
+  )`);
 }

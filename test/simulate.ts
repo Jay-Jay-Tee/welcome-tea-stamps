@@ -109,20 +109,41 @@ assert.equal((await call("GET", "/api/station/me", undefined, { "x-key": rotated
 
 assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)).status, 400, "wrong reset phrase is refused");
 
-// Bug hunt Hall of Fame: needs the Tech Cell stamp and the card's own fix word
+// Repair mission: server owns progress and Hall registration requires completion.
 {
-  const { fixWordFor, BUG_STALL } = await import("../src/bughunt.js");
+  const { BUG_STALL, isCorrect } = await import("../src/bughunt.js");
   const fresh = (await call("POST", "/api/cards", { nickname: "hunter" })).body.code as string;
-  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh) })).status, 403, "no Tech stamp, no hall");
+  assert.equal((await call("GET", `/api/cards/${fresh}/bug-hunt`)).status, 403, "no Tech stamp, no mission");
   await call("POST", "/api/station/stamp", { code: fresh }, { "x-key": pins[BUG_STALL] });
-  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: "NOPE" })).status, 400, "wrong word refused");
-  const first = (await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh).toLowerCase(), name: "<b>Ada</b>" })).body;
+  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { name: "too early" })).status, 403, "cannot skip mission");
+  const attendee = (await pool.query("select id from attendees where code=$1", [fresh])).rows[0];
+  const seed = (await pool.query("select seed from bug_missions where attendee_id=$1", [attendee.id])).rows[0].seed as number;
+  for (let stage = 0; stage < 5; stage++) {
+    const before = (await call("GET", `/api/cards/${fresh}/bug-hunt`)).body;
+    assert.equal(before.progress, stage, "reload resumes at current step");
+    const wrong = before.options.findIndex((_: unknown, i: number) => !isCorrect(seed, stage, i));
+    const failed = (await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: wrong })).body;
+    assert.equal(failed.progress, stage, "wrong answer does not advance");
+    if (stage === 0) {
+      await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: wrong });
+      assert.ok((await call("GET", `/api/cards/${fresh}/bug-hunt`)).body.hint, "hint after two misses");
+    }
+    const right = before.options.findIndex((_: unknown, i: number) => isCorrect(seed, stage, i));
+    const passed = (await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: right })).body;
+    assert.equal(passed.progress, stage + 1);
+    assert.equal((await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: right })).body.progress, stage + 1, "duplicate action is safe");
+  }
+  assert.equal((await call("GET", `/api/cards/${fresh}/bug-hunt`)).body.stage, "complete");
+  const first = (await call("POST", `/api/cards/${fresh}/squash`, { name: "<b>Ada</b>" })).body;
   assert.equal(first.rank, 1);
   assert.equal(first.name, "bAda/b", "angle brackets stripped");
-  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { word: fixWordFor(fresh), name: "again" })).body.rank, 1, "solving twice keeps rank");
+  assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { name: "again" })).body.rank, 1, "solving twice keeps rank");
   const second = (await call("POST", "/api/cards", {})).body.code as string;
   await call("POST", "/api/station/stamp", { code: second }, { "x-key": pins[BUG_STALL] });
-  assert.equal((await call("POST", `/api/cards/${second}/squash`, { word: fixWordFor(second) })).body.rank, 2);
+  const oldId = (await pool.query("select id from attendees where code=$1", [second])).rows[0].id;
+  await pool.query("insert into squashers (attendee_id, name) values ($1,$2)", [oldId, "Anonymous squasher"]);
+  assert.equal((await call("GET", `/api/cards/${second}/bug-hunt`)).body.stage, "complete", "old Hall entries stay valid");
+  assert.equal((await call("POST", `/api/cards/${second}/squash`, {})).body.rank, 2);
   const hall = (await call("GET", "/api/hall")).body;
   assert.deepEqual(hall.map((h: any) => h.name), ["bAda/b", "Anonymous squasher"]);
 }

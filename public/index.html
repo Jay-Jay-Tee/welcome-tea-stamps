@@ -53,9 +53,7 @@
   .crash-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; color: #ffbd44; font-weight: 700; }
   .crash-close { flex: none; min-height: 40px; padding: 6px 12px; background: transparent; color: #e8ecf3; border-color: #8b96ab; box-shadow: none; }
   .crash-close:hover, .crash-close:focus-visible { border-color: #ffbd44; }
-  .crash .err { color: #ff8a80; font-weight: 700; }
   .crash .dim { color: #b7c2d4; }
-  .crash .trace { margin-top: 12px; padding: 14px; background: #172238; border-radius: 10px; overflow-wrap: anywhere; }
   .crash .found { margin-top: 24px; padding: 16px; border: 2px dashed #ffbd44; border-radius: 10px; background: #283653; color: #fff; font-family: Quicksand, system-ui, sans-serif; font-size: 1.05rem; }
   .crash .code { color: #ffbd44; overflow-wrap: anywhere; }
   /* "Website corruption" before the crash: shake, flicker, scrambled text */
@@ -68,22 +66,19 @@
   .crash .row input { min-width: min(100%, 180px); }
   .crash .row button { flex: 1 0 auto; }
   .crash .feedback { min-height: 1.5em; }
-  .debug-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0 0 20px; font: 700 11px/1.3 "DM Sans", system-ui, sans-serif; text-transform: uppercase; letter-spacing: .04em; }
-  .debug-steps span { padding: 8px 5px; border: 1px solid #66758e; border-radius: 6px; color: #b7c2d4; text-align: center; }
-  .debug-steps .done { border-color: #79d9a1; color: #79d9a1; }
-  .debug-steps .active { border-color: #ffbd44; background: #453b2b; color: #ffbd44; }
+  .mission-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #ffbd44; font: 700 12px "DM Sans", system-ui, sans-serif; text-transform: uppercase; }
+  .mission-log { padding-left: 26px; margin: 16px 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  .mission-log li { padding: 6px 0; border-bottom: 1px solid #4a556d; overflow-wrap: anywhere; }
+  .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
+  .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+  .repair-donut.broken { filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
     .crash .row { display: block; }
     .crash .row button { width: 100%; margin-top: 10px; }
   }
-  .hearts { color: #ff605c; letter-spacing: 2px; margin-left: 6px; }
-  .hearts .lost { color: #4a556d; }
-  .quiz .q { font-weight: 700; margin: 6px 0 2px; }
-  .quiz .topic { display: inline-block; margin: 10px 0 4px; padding: 3px 8px; border-radius: 5px; background: #3c5071; color: #dceaff; font: 700 12px "DM Sans", system-ui, sans-serif; }
-  .quiz pre { margin: 10px 0 14px; padding: 12px; border-radius: 8px; background: #172238; color: #e8ecf3; font: 13px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
   .quiz-progress { height: 7px; margin: 12px 0 0; border-radius: 6px; background: #4a556d; overflow: hidden; }
   .quiz-progress span { display: block; height: 100%; background: #ffbd44; transition: width .2s ease; }
-  .quiz .answer-row { margin-top: 12px; }
   .cert-preview { display: block; width: 100%; margin: 14px 0; border: 2px solid #ffbd44; border-radius: 8px; background: #fff; }
   .crash .download { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
   .crash .download:focus-visible { outline: 3px solid #ffbd44; outline-offset: 3px; }
@@ -169,7 +164,6 @@
   <div id="crash" class="crash" role="dialog" aria-modal="true" aria-label="Donut debugger" hidden></div>
 </main>
 <script src="/icons.js"></script>
-<script src="/bug-quiz.js"></script>
 <script src="/bug-certificate.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -297,6 +291,7 @@ function openCard(c, intro = false) {
   if (glitchCleanup) glitchCleanup();
   if (!$("crash").hidden) closeCrash();
   bugTaps = [];
+  missionCode = null; missionState = null;
   code = c; store.set("code", c); showErr(""); shown = null; $("qr").removeAttribute("src");
   document.body.classList.add("carding");
   history.replaceState(null, "", location.pathname);
@@ -373,41 +368,24 @@ function celebrate(stall, n, need) {
 }
 $("stamped").onclick = endMoment;
 
-// Bug hunt for the Tech Cell stall. All of it is a game: nothing actually breaks and the server isn't involved.
-// 1. Locked until the card has the Tech Cell stamp.
-// 2. Then a "leftover" TODO comment appears under the stamps, hinting at the donut.
-// 3. Tapping the donut 5 times quickly shows a fake crash whose stack trace spells the fix (first letters).
-// 4. The word differs per card, so sharing a screenshot of the answer doesn't help.
-// 5. Solving it leaves a "Bug squashed" badge on the card to show at the stall.
+// Tech Cell's hidden repair mission. Every choice is checked by the server.
 const TECH_ID = "presidential";
-const FIX_WORDS = ["COMMIT", "MERGE", "PATCH", "DEBUG", "BRANCH", "DEPLOY", "REBASE", "PUSH"];
-const STEPS = {
-  A: ["addSprinkles", "applyGlaze"], B: ["bakeDough", "boxDonut"], C: ["cookDonut", "coatIcing"],
-  D: ["dipChocolate", "drainOil"], E: ["eatDonut", "eggWash"], G: ["glazeTop", "grabNapkin"],
-  H: ["heatOil", "holdTray"], I: ["icingCheck", "inspectRing"], L: ["layerCream", "lickSpoon"],
-  M: ["mixDough", "meltSugar"], N: ["nibbleEdge", "napkinFold"], O: ["openBox", "ovenPreheat"],
-  P: ["proofDough", "pipeFilling"], R: ["rollDough", "restDough"], S: ["sprinkleTop", "sliceDonut"],
-  T: ["toppingsAdd", "tasteTest"], U: ["unboxDonut", "useTongs"], Y: ["yeastCheck", "yankTray"],
-};
-const fixWordFor = (c) => FIX_WORDS[[...String(c)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % FIX_WORDS.length];
 const hasTech = () => !!(view && view.stamps.includes(TECH_ID) && !$("card").hidden);
-const squashedKey = () => "squashed:" + code;
-let bugTaps = [], wrongTries = 0;
-let glitchTimer = null, glitchCleanup = null, crashReturnFocus = null, certificateUrl = null;
-const crashHeader = `<div class="crash-head"><span>commit-tea. / debugger</span><button class="crash-close" type="button" aria-label="Close debugger">Close ×</button></div>`;
-const debugSteps = `<div class="debug-steps" aria-label="Debugging progress"><span>01 Find</span><span>02 Patch</span><span>03 Verify</span></div>`;
-function setDebugStage(stage) {
-  $("crash").querySelectorAll(".debug-steps span").forEach((item, i) => {
-    item.classList.toggle("done", i < stage);
-    item.classList.toggle("active", i === stage);
-    if (i === stage) item.setAttribute("aria-current", "step"); else item.removeAttribute("aria-current");
-  });
-}
+let bugTaps = [], glitchTimer = null, glitchCleanup = null, crashReturnFocus = null, certificateUrl = null;
+let missionState = null, missionCode = null, missionLoading = false;
+const crashHeader = `<div class="crash-head"><span>commit-tea. / repair lab</span><button class="crash-close" type="button" aria-label="Close repair lab">Close ×</button></div>`;
 
 function updateBugClues() {
   const on = hasTech();
-  const solved = on && !!store.get(squashedKey());
-  $("bugHint").hidden = !on; // the bug line only appears once they've been to the Tech Cell stall
+  $("bugHint").hidden = !on;
+  if (on && missionCode !== code && !missionLoading) {
+    const cardCode = code;
+    missionLoading = true;
+    api(`/api/cards/${cardCode}/bug-hunt`).then((state) => {
+      if (code === cardCode) { missionCode = cardCode; missionState = state; updateBugClues(); }
+    }).catch(() => {}).finally(() => { missionLoading = false; });
+  }
+  const solved = on && missionCode === code && missionState?.stage === "complete";
   $("todo").hidden = !on || solved;
   $("squashed").hidden = !solved;
   const donut = $("donut");
@@ -417,29 +395,22 @@ function updateBugClues() {
     donut.setAttribute("aria-label", "Donut. Tap five times quickly to investigate the bug.");
     donut.setAttribute("aria-describedby", "todo");
   } else {
-    donut.removeAttribute("tabindex");
-    donut.removeAttribute("role");
-    donut.removeAttribute("aria-label");
-    donut.removeAttribute("aria-describedby");
-  }
-  if (on && !window.__bugHinted) {
-    window.__bugHinted = true;
-    console.log("%cLooking for bugs? The donut is a bit fragile.", "font: 600 14px sans-serif; color: #365486");
-    window.donut = { eat() { console.log("TypeError: donut.eat is not a function. Nice try. Go tap the actual donut."); } };
+    donut.removeAttribute("tabindex"); donut.removeAttribute("role");
+    donut.removeAttribute("aria-label"); donut.removeAttribute("aria-describedby");
   }
 }
 
 function donutTap() {
-  if (!hasTech() || store.get(squashedKey()) || glitchTimer || !$("crash").hidden) return;
+  if (!hasTech() || glitchTimer || !$("crash").hidden || missionState?.stage === "complete") return;
   const now = Date.now();
   bugTaps = bugTaps.filter((t) => now - t < 2500).concat(now);
   if (bugTaps.length < 5) return;
-  bugTaps = []; wrongTries = 0;
+  bugTaps = [];
   const cardCode = code;
-  corrupt(() => { if (code === cardCode && hasTech()) showCrash(); });
+  corrupt(() => { if (code === cardCode && hasTech()) openMission(); });
 }
 
-// Scramble every bit of text on the page for a moment, then put it back and run next().
+// Scramble only visible text, then restore it even if the tab hides or the card changes.
 function corrupt(next) {
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return next();
   const JUNK = "#%&*@!?<>/\\|{}[]01$^~";
@@ -449,149 +420,114 @@ function corrupt(next) {
     if (n.nodeValue.trim() && !n.parentElement.closest("[hidden], #crash, #sheet, #stamped")) nodes.push([n, n.nodeValue, n.nodeValue]);
   }
   document.body.classList.add("glitch");
-  try { navigator.vibrate && navigator.vibrate([40, 30, 40, 30, 80, 30, 120]); } catch {}
+  try { navigator.vibrate && navigator.vibrate([40, 30, 40, 30, 80]); } catch {}
   let frame = 0;
   glitchCleanup = () => {
-    clearInterval(glitchTimer);
-    glitchTimer = null;
+    clearInterval(glitchTimer); glitchTimer = null;
     for (const entry of nodes) if (entry[0].nodeValue === entry[2]) entry[0].nodeValue = entry[1];
-    document.body.classList.remove("glitch", "flip");
-    glitchCleanup = null;
+    document.body.classList.remove("glitch", "flip"); glitchCleanup = null;
   };
   glitchTimer = setInterval(() => {
     frame++;
-    const amount = Math.min(1, frame / 8); // more of the page breaks each frame
+    const amount = Math.min(1, frame / 8);
     for (const entry of nodes) {
       if (entry[0].nodeValue !== entry[2]) continue;
-      entry[2] = [...entry[1]].map((ch) => (ch !== " " && Math.random() < amount ? JUNK[(Math.random() * JUNK.length) | 0] : ch)).join("");
+      entry[2] = [...entry[1]].map((ch) => ch !== " " && Math.random() < amount ? JUNK[(Math.random() * JUNK.length) | 0] : ch).join("");
       entry[0].nodeValue = entry[2];
     }
     document.body.classList.toggle("flip", frame % 3 === 0);
     if (frame < 12) return;
-    glitchCleanup();
-    next();
+    glitchCleanup(); next();
   }, 120);
-}
-
-function showCrash() {
-  const word = fixWordFor(code);
-  const seen = {};
-  const trace = [...word].map((ch, i) => {
-    const opts = STEPS[ch]; seen[ch] = (seen[ch] || 0) + 1;
-    return `    at ${opts[(seen[ch] - 1) % opts.length]} (donut.js:${404 + i * 17})`;
-  }).join("<br>");
-  openCrashShell(`<div class="err">Uncaught TypeError: donut.eat is not a function</div>
-    <div class="trace dim">${trace}</div>
-    <div class="found"><b>Patch required</b><p>Something in that stack trace is the fix. Type it to patch the donut.</p>
-      <div class="row"><input id="fixIn" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="The fix" aria-label="Fix word"><button id="fixGo" type="button">Apply patch</button></div>
-      <div id="fixMsg" class="feedback dim" role="status" aria-live="polite"></div></div>`);
-  setDebugStage(1);
-  try { navigator.vibrate && navigator.vibrate([30, 30, 30, 30, 30]); } catch {}
-  $("fixGo").onclick = () => tryFix(word);
-  $("fixIn").onkeydown = (e) => { if (e.key === "Enter") tryFix(word); };
-  (window.matchMedia && matchMedia("(pointer: coarse)").matches ? $("crash").querySelector(".crash-close") : $("fixIn")).focus();
 }
 
 function openCrashShell(content) {
   crashReturnFocus = document.activeElement;
-  $("crash").innerHTML = `<div class="crash-inner">${crashHeader}${debugSteps}${content}</div>`;
+  $("crash").innerHTML = `<div class="crash-inner">${crashHeader}<div class="found" id="missionBox">${content}</div></div>`;
   $("crash").hidden = false;
 }
 
-function tryFix(word) {
-  const guess = $("fixIn").value.toUpperCase().replace(/[^A-Z]/g, "");
-  if (guess !== word) {
-    wrongTries++;
-    $("fixMsg").textContent = wrongTries >= 3
-      ? "Patch rejected: tests failing. Hint: read the stack from the top, first letters only."
-      : "Patch rejected: tests failing.";
-    return;
-  }
-  runQuiz(word);
-}
-
-// Seven card-specific checks with both typed and multiple-choice answers.
-function runQuiz(word) {
-  setDebugStage(2);
-  const tests = BugQuiz.forCard(code);
-  const maxHearts = 4;
-  let step = 0, hearts = maxHearts;
-  const box = $("crash").querySelector(".found");
-  const heartRow = () => `<span class="hearts" aria-label="${hearts} of ${maxHearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(maxHearts - hearts)}</span></span>`;
-  const progress = () => `<div class="quiz-progress" role="progressbar" aria-valuenow="${step}" aria-valuemin="0" aria-valuemax="${tests.length}" aria-label="Tests passed"><span style="width:${step / tests.length * 100}%"></span></div>`;
-  const loseHeart = () => {
-    hearts--;
-    if (hearts > 0) return ask(`Wrong. ${hearts} heart${hearts === 1 ? "" : "s"} left.`);
-    box.innerHTML = `<b>Tests paused.</b><p>You're out of hearts. Restart the debugger to try again.</p><button id="retryBug" type="button">Try again</button>`;
-    $("retryBug").onclick = () => { closeCrash(); $("donut").focus(); };
-    $("retryBug").focus();
-  };
-  const check = (guess) => {
-    const test = tests[step];
-    if (!String(guess).trim()) { box.querySelector(".feedback").textContent = "Enter an answer to run this test."; return; }
-    if (String(guess).trim().toLowerCase() !== test.answer.toLowerCase()) return loseHeart();
-    step++;
-    ask("");
-  };
-  const ask = (msg) => {
-    if (step >= tests.length) return finishBug(word);
-    const test = tests[step];
-    box.innerHTML = `<b>Verification · ${step + 1} of ${tests.length} ${heartRow()}</b>${progress()}
-      <div class="quiz"><span class="topic">${esc(test.topic)}</span><p class="q">${esc(test.prompt)}</p>${test.snippet ? `<pre>${esc(test.snippet)}</pre>` : ""}
-      ${test.options ? test.options.map((option) => `<button type="button" data-answer="${esc(option)}">${esc(option)}</button>`).join("") : `<div class="row answer-row"><input id="quizAnswer" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Your answer" placeholder="Your answer"><button id="quizSubmit" type="button">Run test</button></div>`}</div>
-      <div class="feedback dim" role="status" aria-live="polite">${msg || ""}</div>`;
-    if (test.options) {
-      box.querySelectorAll("[data-answer]").forEach((btn) => { btn.onclick = () => check(btn.dataset.answer); });
-      box.querySelector("button")?.focus();
-    } else {
-      $("quizSubmit").onclick = () => check($("quizAnswer").value);
-      $("quizAnswer").onkeydown = (e) => { if (e.key === "Enter") check($("quizAnswer").value); };
-      if (!(window.matchMedia && matchMedia("(pointer: coarse)").matches)) $("quizAnswer").focus();
-    }
-  };
-  ask("");
-}
-
-// Solved: ask for a Hall of Fame name, register it (the server re-checks the word and the Tech stamp),
-// then show their rank and a certificate they can save.
-function finishBug(word) {
-  setDebugStage(2);
-  store.set(squashedKey(), "1");
-  try { navigator.vibrate && navigator.vibrate([60, 40, 60, 40, 200]); } catch {}
-  updateBugClues();
-  const box = $("crash").querySelector(".found");
-  box.innerHTML = `<b>Bug squashed.</b><p>Patch “${esc(word.toLowerCase())}” applied. You're going in the Hall of Fame.</p>
-    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen" aria-label="Hall of Fame name"><button id="hallGo" type="button">Save</button></div>
-    <span class="dim">Shown on the screen at the Tech Cell stall. Leave it empty to stay anonymous.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
-  $("hallName").value = (view && view.nickname) || "";
-  $("hallGo").onclick = () => registerSquash(word, $("hallName").value);
-  $("hallName").onkeydown = (e) => { if (e.key === "Enter") registerSquash(word, $("hallName").value); };
-  (window.matchMedia && matchMedia("(pointer: coarse)").matches ? $("crash").querySelector(".crash-close") : $("hallName")).focus();
-}
-
-async function registerSquash(word, name) {
+async function openMission() {
   const cardCode = code;
-  if ($("hallGo").disabled) return;
-  $("hallGo").disabled = true;
-  let r;
+  if ($("crash").hidden) openCrashShell("<b>Connecting to repair lab…</b>");
   try {
-    r = await api(`/api/cards/${cardCode}/squash`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ word, name }) });
+    const state = await api(`/api/cards/${cardCode}/bug-hunt`);
+    if (code !== cardCode || $("crash").hidden) return;
+    missionCode = cardCode; missionState = state;
+    updateBugClues(); renderMission(state);
   } catch (e) {
-    if (code === cardCode && $("hallGo")) {
-      $("hallGo").disabled = false;
-      $("hallMsg").textContent = `Couldn't save (${e.message}). Check your wifi and try again.`;
-    }
-    return;
+    if (code === cardCode && !$("crash").hidden)
+      $("missionBox").innerHTML = `<b>Connection lost</b><p>The repair lab needs wifi to save your progress. Your stamp card is safe.</p><button id="missionRetry" type="button">Retry</button>`;
+    if ($("missionRetry")) $("missionRetry").onclick = openMission;
   }
-  store.set("squashRank:" + cardCode, JSON.stringify(r));
-  if (code === cardCode && !$("crash").hidden && $("crash").querySelector(".found")) showSquashed(r);
+}
+
+function renderMission(state, feedback = "") {
+  missionState = state;
+  updateBugClues();
+  if (state.stage === "complete") { finishMission(); return; }
+  const needsRun = state.stage === "diagnose" && !feedback;
+  const labels = { diagnose: "01 Diagnose", patch: "02 Patch", verify: "03 Verify" };
+  const options = state.options.map((option, i) => `<button type="button" data-choice="${i}">${esc(option)}</button>`).join("");
+  $("missionBox").innerHTML = `<div class="mission-top"><span>${labels[state.stage]}</span><span>${state.progress} / ${state.total} steps</span></div>
+    <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
+    <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
+    ${needsRun ? `<div class="repair-donut broken" aria-hidden="true">🍩</div><button id="runBug" type="button">Run the donut</button>` : ""}
+    ${state.logs ? `<ol class="mission-log" ${needsRun ? "hidden" : ""}>${state.logs.map((line) => `<li>${esc(line)}</li>`).join("")}</ol>` : ""}
+    ${state.snippet ? `<pre class="mission-code">${esc(state.snippet)}</pre>` : ""}
+    <div class="quiz mission-options" ${needsRun ? "hidden" : ""}>${options}</div>
+    <p class="feedback dim" role="status" aria-live="polite">${esc([feedback, state.hint].filter(Boolean).join(" "))}</p>`;
+  $("missionBox").querySelectorAll("[data-choice]").forEach((button) => button.onclick = () => submitMission(state.progress, Number(button.dataset.choice)));
+  if (needsRun) {
+    $("runBug").onclick = () => {
+      $("runBug").hidden = true;
+      $("missionBox").querySelector(".mission-log").hidden = false;
+      $("missionBox").querySelector(".mission-options").hidden = false;
+      $("missionBox").querySelector("[data-choice]")?.focus();
+      try { navigator.vibrate && navigator.vibrate([50, 30, 90]); } catch {}
+    };
+    $("runBug").focus();
+  } else $("missionBox").querySelector("[data-choice]")?.focus();
+}
+
+async function submitMission(stage, choice) {
+  const cardCode = code;
+  $("missionBox").querySelectorAll("[data-choice]").forEach((button) => button.disabled = true);
+  try {
+    const next = await api(`/api/cards/${cardCode}/bug-hunt/actions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ stage, choice }) });
+    if (code === cardCode && !$("crash").hidden) renderMission(next, next.feedback === "pass" ? "" : next.feedback);
+  } catch (e) {
+    if (code === cardCode && !$("crash").hidden) renderMission(missionState, "Couldn't save. Check your wifi and try again.");
+  }
+}
+
+function finishMission() {
+  $("missionBox").innerHTML = `<div class="repair-donut" aria-hidden="true">🍩</div><b>Bug squashed.</b><p>The donut is fixed. Choose a name for the Hall of Fame.</p>
+    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen" aria-label="Hall of Fame name"><button id="hallGo" type="button">Save</button></div>
+    <span class="dim">Leave it empty to stay anonymous.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
+  $("hallName").value = (view && view.nickname) || "";
+  $("hallGo").onclick = () => registerSquash($("hallName").value);
+  $("hallName").onkeydown = (e) => { if (e.key === "Enter") registerSquash($("hallName").value); };
+  const saved = store.get("squashRank:" + code);
+  if (saved) { try { showSquashed(JSON.parse(saved)); } catch {} }
+}
+
+async function registerSquash(name) {
+  const cardCode = code;
+  if ($("hallGo")?.disabled) return;
+  if ($("hallGo")) $("hallGo").disabled = true;
+  try {
+    const result = await api(`/api/cards/${cardCode}/squash`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    store.set("squashRank:" + cardCode, JSON.stringify(result));
+    if (code === cardCode && !$("crash").hidden) showSquashed(result);
+  } catch (e) {
+    if (code === cardCode && $("hallGo")) { $("hallGo").disabled = false; $("hallMsg").textContent = `Couldn't save (${e.message}). Check your wifi and retry.`; }
+  }
 }
 
 function showSquashed(r) {
   const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
-  $("crash").hidden = false;
-  setDebugStage(2);
-  $("crash").querySelector(".found").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>
+  $("missionBox").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>
     <div class="row"><button id="certGo" type="button">Preview my certificate</button></div>
     <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
   $("certGo").onclick = () => previewCertificate(r);
@@ -647,12 +583,7 @@ $("crash").onkeydown = (e) => {
   if (!e.shiftKey && index === items.length - 1) { e.preventDefault(); items[0].focus(); }
 };
 function openSquashed() {
-  let r = null;
-  try { r = JSON.parse(store.get("squashRank:" + code) || "null"); } catch {}
-  openCrashShell(`<div class="found"></div>`);
-  if (r) { showSquashed(r); return; }
-  // Solved but the name wasn't saved yet (say the wifi dropped): ask again.
-  finishBug(fixWordFor(code));
+  openMission();
 }
 $("squashed").onclick = openSquashed;
 $("squashed").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSquashed(); } };

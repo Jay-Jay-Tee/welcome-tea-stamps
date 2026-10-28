@@ -6,7 +6,7 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
-    "test": "tsx test/simulate.ts && node test/bugquiz.mjs",
+    "test": "tsx test/simulate.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

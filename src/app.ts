@@ -6,7 +6,7 @@ import path from "node:path";
 import type { EventConfig } from "./config.js";
 import { migrate } from "./db.js";
 import { CODE_RE, KEY_RE, randomCode } from "./codes.js";
-import { BUG_STALL, fixWordFor } from "./bughunt.js";
+import { BUG_STALL, MISSION_DONE, isCorrect, missionView } from "./bughunt.js";
 
 const cleanCode = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 // Station keys are 16 characters (about 75 bits), so guessing one over the network is hopeless and no rate limit is needed.
@@ -115,13 +115,43 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     }),
   );
 
-  // Bug hunt: the card must have the Tech Cell stamp and the right fix word. Solving twice keeps the first rank.
+  const missionFor = async (a: Attendee) => {
+    if (!(await stampsOf(a.id)).some((s) => s.stall_id === BUG_STALL)) throw new HttpError(403, "Visit the Tech Cell stall first");
+    await pool.query("insert into bug_missions (attendee_id, seed) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, crypto.randomInt(0, 2147483647)]);
+    const mission = (await pool.query("select seed, stage, attempts from bug_missions where attendee_id=$1", [a.id])).rows[0] as { seed: number; stage: number; attempts: number };
+    const ranked = (await pool.query("select attendee_id from squashers where attendee_id=$1", [a.id])).rows.length > 0;
+    return { mission, ranked };
+  };
+
+  app.get("/api/cards/:code/bug-hunt", wrap(async (req, res) => {
+    const a = await findAttendee(req.params.code);
+    const { mission, ranked } = await missionFor(a);
+    res.json(missionView(mission.seed, mission.stage, mission.attempts, ranked));
+  }));
+
+  app.post("/api/cards/:code/bug-hunt/actions", wrap(async (req, res) => {
+    const a = await findAttendee(req.params.code);
+    const { mission, ranked } = await missionFor(a);
+    if (ranked || mission.stage >= MISSION_DONE) return res.json(missionView(mission.seed, MISSION_DONE, 0, true));
+    const stage = req.body?.stage, choice = req.body?.choice;
+    if (!Number.isInteger(stage) || !Number.isInteger(choice) || stage < 0 || choice < 0) throw new HttpError(400, "Choose a mission answer");
+    if (stage !== mission.stage) return res.json({ ...missionView(mission.seed, mission.stage, mission.attempts), feedback: "Already moved on. Here's your current step." });
+    const correct = isCorrect(mission.seed, stage, choice);
+    const updated = (await pool.query(correct
+      ? "update bug_missions set stage=stage+1, attempts=0 where attendee_id=$1 and stage=$2 returning seed, stage, attempts"
+      : "update bug_missions set attempts=attempts+1 where attendee_id=$1 and stage=$2 returning seed, stage, attempts", [a.id, stage])).rows[0] as { seed: number; stage: number; attempts: number } | undefined;
+    if (updated?.stage === MISSION_DONE) await pool.query("update bug_missions set completed_at=now() where attendee_id=$1 and completed_at is null", [a.id]);
+    const current = updated || (await missionFor(a)).mission;
+    res.json({ ...missionView(current.seed, current.stage, current.attempts), feedback: updated ? correct ? "pass" : "Try again." : "Already moved on. Here's your current step." });
+  }));
+
+  // Existing Hall entries keep their rank; new entries require server-recorded mission completion.
   app.post(
     "/api/cards/:code/squash",
     wrap(async (req, res) => {
       const a = await findAttendee(req.params.code);
-      if (!(await stampsOf(a.id)).some((s) => s.stall_id === BUG_STALL)) throw new HttpError(403, "Visit the Tech Cell stall first");
-      if (String(req.body?.word ?? "").toUpperCase() !== fixWordFor(a.code)) throw new HttpError(400, "That isn't the fix");
+      const { mission, ranked } = await missionFor(a);
+      if (!ranked && mission.stage < MISSION_DONE) throw new HttpError(403, "Finish the bug hunt first");
       const name = String(req.body?.name ?? "").replace(/[<>]/g, "").trim().slice(0, 24) || "Anonymous squasher";
       await pool.query("insert into squashers (attendee_id, name) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, name]);
       const all = (await pool.query("select attendee_id, name, solved_at from squashers order by solved_at, attendee_id")).rows as {
@@ -364,6 +394,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
       if (!sameSecret(String(req.body?.confirm ?? ""), resetPhrase)) throw new HttpError(400, "Wrong reset phrase");
       await pool.query("delete from stamps");
       await pool.query("delete from squashers");
+      await pool.query("delete from bug_missions");
       await pool.query("delete from attendees");
       await setSetting("donuts_out", "0");
       res.json({ ok: true });
