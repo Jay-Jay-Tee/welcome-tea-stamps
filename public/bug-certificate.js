@@ -22,15 +22,20 @@
     } while (px > 30);
     g.fillStyle = color;
     g.fillText(value, x, y);
+    return g.measureText(value).width;
   }
   function donut(g, x, y) {
     g.save(); g.translate(x, y); g.rotate(-0.18);
+    g.fillStyle = "#a65c38";
+    g.beginPath(); g.arc(6, 11, 130, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#d89255";
     g.beginPath(); g.arc(0, 0, 128, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#f59bb8";
     g.beginPath(); g.arc(0, 0, 112, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#fff";
     g.beginPath(); g.arc(0, 0, 48, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(255,255,255,.65)"; g.lineWidth = 8; g.lineCap = "round";
+    g.beginPath(); g.arc(0, 0, 100, -2.65, -1.45); g.stroke();
     const colors = [GOLD, BLUE, "#fff", "#5aa9e6", "#3fae5a"];
     for (let i = 0; i < 24; i++) {
       const angle = i * 2.399;
@@ -79,8 +84,8 @@
     donut(g, 1262, 389);
 
     text(g, "Proudly awarded to", 142, 577, 30, "#5b6677", 500);
-    text(g, String(name || "Anonymous squasher"), 139, 665, 79, INK, 700, 1040);
-    g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(1040, 689); g.stroke();
+    const nameWidth = text(g, String(name || "Anonymous squasher"), 139, 665, 79, INK, 700, 1040);
+    g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(Math.min(142 + nameWidth + 18, 1040), 689); g.stroke();
     text(g, `For finding the hidden donut bug and repairing it at ${event}.`, 142, 751, 28, INK, 500, 1170);
     g.strokeStyle = "#c5cfdb"; g.lineWidth = 2; g.beginPath(); g.moveTo(132, 806); g.lineTo(1435, 806); g.stroke();
     text(g, `${date}  |  ${venue}`, 142, 859, 25, "#5b6677", 500, 850);

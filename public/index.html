@@ -71,6 +71,9 @@
   .mission-log li { padding: 6px 0; border-bottom: 1px solid #4a556d; overflow-wrap: anywhere; }
   .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
+  .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
+  .mission-run { display: grid; justify-items: center; gap: 4px; width: 100%; padding: 14px; background: #354666; color: #fff; border-color: #ffbd44; box-shadow: 3px 3px 0 #ffbd44; }
+  .mission-run .repair-donut { margin: 0; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
   .repair-donut.broken { filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
@@ -467,12 +470,13 @@ function renderMission(state, feedback = "") {
   updateBugClues();
   if (state.stage === "complete") { finishMission(); return; }
   const needsRun = state.stage === "diagnose" && !feedback;
-  const labels = { diagnose: "01 Diagnose", patch: "02 Patch", verify: "03 Verify" };
+  const labels = { diagnose: "01 Find the fault", patch: "02 Patch the bug", verify: "03 Prove your fix" };
   const options = state.options.map((option, i) => `<button type="button" data-choice="${i}">${esc(option)}</button>`).join("");
   $("missionBox").innerHTML = `<div class="mission-top"><span>${labels[state.stage]}</span><span>${state.progress} / ${state.total} steps</span></div>
     <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
+    ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: a bug slipped into commit-tea. Reproduce the failure, find the first bad event, and earn your chance to patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
     <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
-    ${needsRun ? `<div class="repair-donut broken" aria-hidden="true">🍩</div><button id="runBug" type="button">Run the donut</button>` : ""}
+    ${needsRun ? `<button id="runBug" class="mission-run" type="button"><span class="repair-donut broken" aria-hidden="true">🍩</span><span>Run the donut</span></button>` : ""}
     ${state.logs ? `<ol class="mission-log" ${needsRun ? "hidden" : ""}>${state.logs.map((line) => `<li>${esc(line)}</li>`).join("")}</ol>` : ""}
     ${state.snippet ? `<pre class="mission-code">${esc(state.snippet)}</pre>` : ""}
     <div class="quiz mission-options" ${needsRun ? "hidden" : ""}>${options}</div>
@@ -483,7 +487,9 @@ function renderMission(state, feedback = "") {
       $("runBug").hidden = true;
       $("missionBox").querySelector(".mission-log").hidden = false;
       $("missionBox").querySelector(".mission-options").hidden = false;
-      $("missionBox").querySelector("[data-choice]")?.focus();
+      $("missionBox").querySelector(".feedback").textContent = "Failure reproduced. Find the first bad line in the log.";
+      $("missionBox").querySelector(".mission-log").scrollIntoView({ block: "center", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      $("missionBox").querySelector("[data-choice]")?.focus({ preventScroll: true });
       try { navigator.vibrate && navigator.vibrate([50, 30, 90]); } catch {}
     };
     $("runBug").focus();
@@ -502,9 +508,9 @@ async function submitMission(stage, choice) {
 }
 
 function finishMission() {
-  $("missionBox").innerHTML = `<div class="repair-donut" aria-hidden="true">🍩</div><b>Bug squashed.</b><p>The donut is fixed. Choose a name for the Hall of Fame.</p>
-    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="off" placeholder="Name for the big screen" aria-label="Hall of Fame name"><button id="hallGo" type="button">Save</button></div>
-    <span class="dim">Leave it empty to stay anonymous.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
+  $("missionBox").innerHTML = `<div class="repair-donut" aria-hidden="true">🍩</div><b>Mission complete. Bug squashed.</b><p>You found the fault, patched it, and proved the fix. Welcome to the Bug Squashers. Choose a Hall of Fame name.</p>
+    <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="name" placeholder="Your name" aria-label="Name for certificate and Hall of Fame"><button id="hallGo" type="button">Save</button></div>
+    <span class="dim">We recommend using your name: it appears on your certificate and the Hall of Fame. Leave it blank only if you prefer “Anonymous squasher”.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
   $("hallName").value = (view && view.nickname) || "";
   $("hallGo").onclick = () => registerSquash($("hallName").value);
   $("hallName").onkeydown = (e) => { if (e.key === "Enter") registerSquash($("hallName").value); };

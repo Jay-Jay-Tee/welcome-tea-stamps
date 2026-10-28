@@ -9,24 +9,24 @@ type Check = { title: string; prompt: string; options: string[]; answer: number 
 type Scene = { title: string; intro: string; logs: string[]; snippet: string; patch: string[]; checks: Check[] };
 
 function sceneFor(seed: number): Scene {
-  const id = 10 + seed % 80, stock = 3 + Math.floor(seed / 7) % 4;
+  const stock = 3 + Math.floor(seed / 7) % 4;
   const scenes: Scene[] = [
     {
       title: "The double donut",
-      intro: `One tap should reserve one donut. Trace tap #${id} through the retry.`,
-      logs: [`tap #${id} received`, `donut reserved; stock ${stock} → ${stock - 1}`, `tap #${id} retried`, `second donut reserved; stock ${stock - 1} → ${stock - 2}`],
+      intro: "One tap should reserve one donut. Watch what happens when the same tap is retried.",
+      logs: ["first tap received", `donut reserved; stock ${stock} → ${stock - 1}`, "same tap retried", `second donut reserved; stock ${stock - 1} → ${stock - 2}`],
       snippet: "function reserve(tapId) {\n  // stop repeated taps here\n  return takeOneDonut();\n}",
       patch: ["if (seen.has(tapId)) return previousResult;", "if (seen.has(tapId)) stock--;", "seen.clear(); // start fresh"],
       checks: [
-        { title: "First tap", prompt: `Stock is ${stock}. Tap #${id} arrives once. What should happen?`, options: [`Give one; stock becomes ${stock - 1}`, `Give two; stock becomes ${stock - 2}`, "Give none"], answer: 0 },
-        { title: "Retry", prompt: `Tap #${id} arrives again. What should happen?`, options: ["Show the same result; stock stays put", "Give another donut", "Erase the first result"], answer: 0 },
+        { title: "First tap", prompt: `Stock is ${stock}. A person taps once. What should happen?`, options: [`Give one; stock becomes ${stock - 1}`, `Give two; stock becomes ${stock - 2}`, "Give none"], answer: 0 },
+        { title: "Retry", prompt: "The same tap arrives again. What should happen?", options: ["Show the same result; stock stays put", "Give another donut", "Erase the first result"], answer: 0 },
         { title: "Out of stock", prompt: "Stock is 0 and a new tap arrives. What should happen?", options: ["Show sold out; stock stays 0", "Reserve a donut anyway", "Reset the stock"], answer: 0 },
       ],
     },
     {
       title: "The ghost donut",
-      intro: `The counter says zero, but tap #${id} still gets a donut. Find the first bad event.`,
-      logs: [`tap #${id} received`, "stock read: 0", "donut reserved anyway", "screen says: enjoy your donut"],
+      intro: "The counter says zero, but someone still gets a donut. Find the first bad event.",
+      logs: ["tap received", "stock read: 0", "donut reserved anyway", "screen says: enjoy your donut"],
       snippet: "function reserve(stock) {\n  // guard an empty tray here\n  return takeOneDonut();\n}",
       patch: ["if (stock <= 0) return soldOut;", "if (stock <= 0) stock--;", "stock = 1; // just in case"],
       checks: [

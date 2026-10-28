@@ -1,6 +1,6 @@
 # Welcome Tea stamp rally
 
-Digital stamp card for the SoC Welcome Tea (Wed 28 Oct 2026, 3-6pm, COM3 MPH). Attendees open a link on their own phone and get a card with no account. They collect a stamp at each of the five wing stalls, and a full card gets a free donut at the donut corner.
+Digital stamp card for the Computing Club Welcome Tea (Wed 28 Oct 2026, 3-6pm, COM3 MPH). Attendees open a link on their own phone and get a card with no account. They collect a stamp at each of the five wing stalls, and a full card gets a free donut at the donut corner.
 
 Volunteers scan the attendee's QR with their own phone. A forwarded link can't earn a stamp, because stamping needs a station's 16 character key, and keys are only handed out on login QRs.
 
