@@ -133,6 +133,7 @@
       <div class="row" style="display:block">
         <label for="nick" class="muted">Nickname (optional, shown to volunteers and on the Hall of Fame)</label>
         <input id="nick" type="text" maxlength="30" autocomplete="off">
+        <p id="nickErr" class="banner bad" role="alert" hidden></p>
       </div>
       <div class="row"><button id="go">Get my stamp card</button></div>
       <p class="muted" style="margin:0">Had a card before? <a href="#" id="haveCode">Type your code</a></p>
@@ -332,7 +333,11 @@ setInterval(() => {
 $("go").onclick = async () => {
   $("go").disabled = true;
   try { const c = await api("/api/cards", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: $("nick").value }) }); openCard(c.code, true); }
-  catch (e) { showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again."); }
+  catch (e) {
+    // A refused nickname is shown right under the box; anything else is a connection problem.
+    if (e.status === 400) { $("nickErr").textContent = e.message.replace(/^Nickname: /, ""); $("nickErr").hidden = false; $("nick").focus(); }
+    else showErr("Couldn't make a card: " + e.message + ". Check your wifi and try again.");
+  }
   $("go").disabled = false;
 };
 // Full-screen QR. First time on this phone it explains itself, then points at the button.
@@ -562,7 +567,7 @@ async function registerSquash(name) {
     store.set("squashRank:" + cardCode, JSON.stringify(result));
     if (code === cardCode && !$("crash").hidden) showSquashed(result);
   } catch (e) {
-    if (code === cardCode && $("hallGo")) { $("hallGo").disabled = false; $("hallMsg").textContent = `Couldn't save (${e.message}). Check your wifi and retry.`; }
+    if (code === cardCode && $("hallGo")) { $("hallGo").disabled = false; $("hallMsg").textContent = e.status === 400 ? e.message : `Couldn't save (${e.message}). Check your wifi and retry.`; }
   }
 }
 

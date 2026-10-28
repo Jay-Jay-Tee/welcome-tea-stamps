@@ -40,6 +40,7 @@
     <input id="fixCode" type="text" placeholder="Their 8 character code" autocapitalize="characters" autocomplete="off" spellcheck="false">
     <div class="row"><select id="fixStall"></select></div>
     <div class="row"><button id="addStamp">Add stamp</button><button id="rmStamp" class="ghost">Remove stamp</button></div>
+    <div class="row"><button id="hideName" class="danger">Hide their name (show as Anonymous)</button></div>
     <p id="fixOut" class="muted"></p>
 
     <hr>
@@ -126,6 +127,13 @@ const fix = (on) => async () => {
   } catch (e) { $("fixOut").textContent = e.message; }
 };
 $("addStamp").onclick = fix(true);
+// For a rude name the filter missed: blanks it on both Hall of Fame boards straight away.
+$("hideName").onclick = async () => {
+  try {
+    const v = await (await call("POST", "/api/admin/hide-name", { code: $("fixCode").value })).json();
+    $("fixOut").textContent = `${v.code}: name hidden. Shows as Anonymous on both Hall of Fame boards.`;
+  } catch (e) { $("fixOut").textContent = e.message; }
+};
 $("rmStamp").onclick = fix(false);
 
 $("csv").onclick = async () => {

@@ -217,12 +217,28 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.ok(times.every((t: number, i: number) => i === 0 || t >= times[i - 1]), "in collection order");
 }
 
+// Name filter: public names can't be rude, links, handles or phone numbers; real names still work.
+{
+  assert.equal((await call("POST", "/api/cards", { nickname: "f.u.c.k" })).status, 400, "rude nickname refused");
+  assert.equal((await call("POST", "/api/cards", { nickname: "@someone" })).status, 400, "handle refused");
+  const shiTing = (await call("POST", "/api/cards", { nickname: "Shi Ting" })).body;
+  assert.equal(shiTing.nickname, "Shi Ting", "real name containing a blocked word still allowed");
+  await call("POST", "/api/station/stamp", { code: shiTing.code }, { "x-key": pins["presidential"] });
+  await call("POST", "/api/admin/bug", { code: shiTing.code, on: true }, admin);
+  assert.equal((await call("POST", `/api/cards/${shiTing.code}/squash`, { name: "knn" })).status, 400, "rude hall name refused");
+  assert.equal((await call("POST", `/api/cards/${shiTing.code}/squash`, { name: "Shi Ting" })).body.name, "Shi Ting", "then a good name saves");
+  const hidden = (await call("POST", "/api/admin/hide-name", { code: shiTing.code }, admin)).body;
+  assert.equal(hidden.nickname, null, "nickname blanked");
+  assert.ok(!(await call("GET", "/api/hall")).body.some((h: any) => h.name === "Shi Ting"), "hall name hidden");
+  assert.equal((await call("POST", "/api/admin/hide-name", { code: shiTing.code })).status, 401, "admin only");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 6);
+assert.equal(end.attendees, N + 7);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 7);
+assert.equal(csv.trim().split("\n").length, N + 8);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

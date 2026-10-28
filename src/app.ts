@@ -6,6 +6,7 @@ import path from "node:path";
 import type { EventConfig } from "./config.js";
 import { migrate } from "./db.js";
 import { CODE_RE, KEY_RE, randomCode } from "./codes.js";
+import { checkName } from "./names.js";
 import { BUG_STALL, HEARTS, MISSION_DONE, isCorrect, missionView, sceneIndex } from "./bughunt.js";
 
 const cleanCode = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -103,7 +104,9 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
   app.post(
     "/api/cards",
     wrap(async (req, res) => {
-      const nickname = String(req.body?.nickname ?? "").replace(/[<>]/g, "").trim().slice(0, 30) || null;
+      const checked = checkName(req.body?.nickname, 30);
+      if (!checked.ok) throw new HttpError(400, `Nickname: ${checked.reason}`);
+      const nickname = checked.name;
       for (let i = 0; i < 5; i++) {
         const r = await pool.query(
           "insert into attendees (code, nickname) values ($1,$2) on conflict (code) do nothing returning *",
@@ -161,7 +164,9 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
       const a = await findAttendee(req.params.code);
       const { mission, ranked } = await missionFor(a);
       if (!ranked && mission.stage < MISSION_DONE) throw new HttpError(403, "Finish the bug hunt first");
-      const name = String(req.body?.name ?? "").replace(/[<>]/g, "").trim().slice(0, 24) || "Anonymous squasher";
+      const checked = checkName(req.body?.name, 24);
+      if (!checked.ok) throw new HttpError(400, checked.reason);
+      const name = checked.name || "Anonymous squasher";
       const done = (await pool.query("select started_at, completed_at, mistakes from bug_missions where attendee_id=$1", [a.id])).rows[0] as
         { started_at: Date | null; completed_at: Date | null; mistakes: number } | undefined;
       const seconds = done?.started_at && done?.completed_at
@@ -391,6 +396,18 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     ...(await cardView(a)),
     bugSquashed: (await pool.query("select 1 from squashers where attendee_id=$1", [a.id])).rows.length > 0,
   });
+
+  // Backstop for names the filter missed: blank the nickname (donut board shows Anonymous) and the squasher name.
+  app.post(
+    "/api/admin/hide-name",
+    adminAuth,
+    wrap(async (req, res) => {
+      const a = await findAttendee(req.body?.code);
+      await pool.query("update attendees set nickname=null where id=$1", [a.id]);
+      await pool.query("update squashers set name='Anonymous squasher' where attendee_id=$1", [a.id]);
+      res.json(await adminCardView(await findAttendee(a.code)));
+    }),
+  );
 
   app.post(
     "/api/admin/donut",
