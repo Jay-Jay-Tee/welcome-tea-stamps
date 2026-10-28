@@ -196,17 +196,22 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.equal(marked.bugSquashed, true);
   assert.equal((await call("GET", `/api/cards/${card}/bug-hunt`)).status, 403, "card page still needs the Tech stamp to show the hunt");
   assert.ok((await call("GET", "/api/hall")).body.some((h: any) => h.name === "fixme"), "marked card joins the hall under its nickname");
+  const bare = (await call("POST", "/api/cards", {})).body.code as string;
+  await call("POST", "/api/station/stamp", { code: bare }, { "x-key": pins["presidential"] });
+  await call("POST", "/api/admin/bug", { code: bare, on: true }, admin);
+  assert.equal((await call("POST", `/api/cards/${bare}/squash`, { name: "Grace" })).body.name, "Grace", "typed name replaces the placeholder");
+  assert.equal((await call("POST", `/api/cards/${bare}/squash`, { name: "Someone else" })).body.name, "Grace", "a real name is not overwritten");
   const unmarked = (await call("POST", "/api/admin/bug", { code: card, on: false }, admin)).body;
   assert.equal(unmarked.bugSquashed, false);
   assert.ok(!(await call("GET", "/api/hall")).body.some((h: any) => h.name === "fixme"), "removed from the hall");
 }
 
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 5);
+assert.equal(end.attendees, N + 6);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 6);
+assert.equal(csv.trim().split("\n").length, N + 7);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

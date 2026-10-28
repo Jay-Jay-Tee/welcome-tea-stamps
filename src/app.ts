@@ -168,6 +168,9 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
         ? Math.max(1, Math.round((new Date(done.completed_at).getTime() - new Date(done.started_at).getTime()) / 1000)) : null;
       const hearts = done ? Math.max(0, HEARTS - done.mistakes) : null;
       await pool.query("insert into squashers (attendee_id, name, seconds, hearts) values ($1,$2,$3,$4) on conflict (attendee_id) do nothing", [a.id, name, seconds, hearts]);
+      // A placeholder entry (say, marked squashed from admin) takes the name the attendee types later. Real names stay put.
+      if (name !== "Anonymous squasher")
+        await pool.query("update squashers set name=$2 where attendee_id=$1 and name='Anonymous squasher'", [a.id, name]);
       const all = (await pool.query("select attendee_id, name, solved_at, seconds, hearts from squashers order by solved_at, attendee_id")).rows as {
         attendee_id: number; name: string; solved_at: Date; seconds: number | null; hearts: number | null;
       }[];

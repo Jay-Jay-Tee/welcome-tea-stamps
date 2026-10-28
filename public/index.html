@@ -81,6 +81,7 @@
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
   /* Mission progress donut: grey and bare at the start, one icing section and more colour per solved step */
+  .hall-link { display: block; text-align: center; text-decoration: none; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; }
   .repair-meter { text-align: center; margin: 4px 0 10px; }
   .repair-meter svg { width: 116px; height: 116px; filter: grayscale(var(--grey)) brightness(calc(1 - var(--grey) * .25)); transition: filter .7s ease; }
   .repair-meter.done svg { animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
@@ -223,7 +224,7 @@ async function loadCfg() {
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   showDonutsOut(cfg.donutsOut);
   const techStall = cfg.stalls.find((s) => s.id === "presidential");
-  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.`;
+  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.<br><a href="/hall.html" target="_blank" rel="noopener">See the Hall of Fame</a>`;
   return true;
 }
 
@@ -556,6 +557,7 @@ function showSquashed(r) {
   const stats = [r.seconds ? `Fixed in ${clock(r.seconds)}` : "", Number.isInteger(r.hearts) ? `${"\u2665".repeat(r.hearts)} left` : ""].filter(Boolean).join(" · ");
   $("missionBox").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>${stats ? `<p class="mission-hearts">${esc(stats)}</p>` : ""}
     <div class="row"><button id="certGo" type="button">Preview my certificate</button></div>
+    <div class="row"><a class="btn hall-link" href="/hall.html" target="_blank" rel="noopener">See the Hall of Fame</a></div>
     <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
   $("certGo").onclick = () => previewCertificate(r);
   $("certGo").focus();
