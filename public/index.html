@@ -81,6 +81,14 @@
   .hearts { color: #ff605c; letter-spacing: 2px; margin-left: 6px; }
   .hearts .lost { color: #4a556d; }
   .quiz .q { font-weight: 700; margin: 6px 0 2px; }
+  .quiz .topic { display: inline-block; margin: 10px 0 4px; padding: 3px 8px; border-radius: 5px; background: #3c5071; color: #dceaff; font: 700 12px "DM Sans", system-ui, sans-serif; }
+  .quiz pre { margin: 10px 0 14px; padding: 12px; border-radius: 8px; background: #172238; color: #e8ecf3; font: 13px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .quiz-progress { height: 7px; margin: 12px 0 0; border-radius: 6px; background: #4a556d; overflow: hidden; }
+  .quiz-progress span { display: block; height: 100%; background: #ffbd44; transition: width .2s ease; }
+  .quiz .answer-row { margin-top: 12px; }
+  .cert-preview { display: block; width: 100%; margin: 14px 0; border: 2px solid #ffbd44; border-radius: 8px; background: #fff; }
+  .crash .download { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+  .crash .download:focus-visible { outline: 3px solid #ffbd44; outline-offset: 3px; }
   .todo { font: 12px ui-monospace, Menlo, monospace; color: #8b96ab; margin: 12px 0 0; }
   .squashedBadge { cursor: pointer; margin: 12px 0 0; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 10px; background: #fff7e0; font-weight: 700; text-align: center; }
   #donut[role="button"] { cursor: pointer; border-radius: 50%; touch-action: manipulation; }
@@ -163,6 +171,8 @@
   <div id="crash" class="crash" role="dialog" aria-modal="true" aria-label="Donut debugger" hidden></div>
 </main>
 <script src="/icons.js"></script>
+<script src="/bug-quiz.js"></script>
+<script src="/bug-certificate.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
@@ -385,7 +395,7 @@ const fixWordFor = (c) => FIX_WORDS[[...String(c)].reduce((h, ch) => (h * 31 + c
 const hasTech = () => !!(view && view.stamps.includes(TECH_ID) && !$("card").hidden);
 const squashedKey = () => "squashed:" + code;
 let bugTaps = [], wrongTries = 0;
-let glitchTimer = null, glitchCleanup = null, crashReturnFocus = null;
+let glitchTimer = null, glitchCleanup = null, crashReturnFocus = null, certificateUrl = null;
 const crashHeader = `<div class="crash-head"><span>commit-tea. / debugger</span><button class="crash-close" type="button" aria-label="Close debugger">Close ×</button></div>`;
 const debugSteps = `<div class="debug-steps" aria-label="Debugging progress"><span>01 Find</span><span>02 Patch</span><span>03 Verify</span></div>`;
 function setDebugStage(stage) {
@@ -502,61 +512,45 @@ function tryFix(word) {
   runQuiz(word);
 }
 
-// Stage 2: four questions, chosen per card, with 3 hearts. A wrong answer costs a heart; none left is game over.
-const QUIZ = [
-  ["In JavaScript, what is 0.1 + 0.2 === 0.3?", ["false", "true", "TypeError"], "Binary floating point cannot represent those decimals exactly."],
-  ["In JavaScript, what does typeof null return?", ['"object"', '"null"', '"undefined"'], "A long-standing JavaScript quirk reports null as an object."],
-  ["What is 1011 + 0110 in binary?", ["10001", "1111", "10101"], "11 + 6 = 17, which is 10001 in binary."],
-  ["In Python, what does print(0b101 << 2) output?", ["20", "10", "7"], "Shifting 5 left by two bits multiplies it by four."],
-  ["Which sort is O(n log n) even in the worst case?", ["Merge sort", "Quicksort", "Insertion sort"], "Merge sort splits the input and combines it in linear work per level."],
-  ["Average time to look up a key in a hash table?", ["O(1)", "O(log n)", "O(n)"], "A hash points to the key's bucket in constant time on average."],
-  ["In Python, what is [1, 2, 3][-1]?", ["3", "1", "IndexError"], "Index -1 reads the final item in a Python list."],
-  ["What does git reset --hard HEAD~1 do?", ["Throws away the last commit and its changes", "Pushes the last commit", "Renames the current branch"], "The branch moves back one commit and the worktree is reset to match."],
-  ["What does git rebase main do on your branch?", ["Replays your commits on top of main", "Deletes main", "Merges your branch into main"], "Rebase reapplies your branch's commits after the tip of main."],
-  ["Which of these is NOT a standard HTTP method?", ["FETCH", "PATCH", "OPTIONS"], "FETCH is a browser API name, not an HTTP request method."],
-  ["Which HTTP status code is \"I'm a teapot\"?", ["418", "419", "451"], "418 is the deliberately playful teapot status code."],
-  ["Which command shows changed files in your Git worktree?", ["git status", "git push", "git clone"], "git status reports staged, unstaged, and untracked files."],
-];
+// Seven card-specific checks with both typed and multiple-choice answers.
 function runQuiz(word) {
   setDebugStage(2);
-  const seed = [...String(code)].reduce((h, ch) => (h * 33 + ch.charCodeAt(0)) >>> 0, 11);
-  const picks = QUIZ.map((_, i) => i);
-  let shuffle = seed;
-  for (let i = picks.length - 1; i > 0; i--) {
-    shuffle = (Math.imul(shuffle, 1664525) + 1013904223) >>> 0;
-    const j = shuffle % (i + 1);
-    [picks[i], picks[j]] = [picks[j], picks[i]];
-  }
-  picks.length = 4;
-  let step = 0, hearts = 3;
+  const tests = BugQuiz.forCard(code);
+  const maxHearts = 4;
+  let step = 0, hearts = maxHearts;
   const box = $("crash").querySelector(".found");
-  const heartRow = () => `<span class="hearts" aria-label="${hearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(3 - hearts)}</span></span>`;
-  // Wrong answer: lose a heart and retry the same question. No hearts left: game over, start the bug again.
+  const heartRow = () => `<span class="hearts" aria-label="${hearts} of ${maxHearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(maxHearts - hearts)}</span></span>`;
+  const progress = (passed = step) => `<div class="quiz-progress" role="progressbar" aria-valuenow="${passed}" aria-valuemin="0" aria-valuemax="${tests.length}" aria-label="Tests passed"><span style="width:${passed / tests.length * 100}%"></span></div>`;
   const loseHeart = () => {
     hearts--;
     if (hearts > 0) return ask(`Wrong. ${hearts} heart${hearts === 1 ? "" : "s"} left.`);
-    box.innerHTML = `<b>Tests failed.</b><p>You're out of hearts. Restart the debugger to try a fresh run.</p><button id="retryBug" type="button">Try again</button>`;
+    box.innerHTML = `<b>Tests paused.</b><p>You're out of hearts. Restart the debugger to try again.</p><button id="retryBug" type="button">Try again</button>`;
     $("retryBug").onclick = () => { closeCrash(); $("donut").focus(); };
     $("retryBug").focus();
   };
+  const check = (guess) => {
+    const test = tests[step];
+    if (!String(guess).trim()) { box.querySelector(".feedback").textContent = "Enter an answer to run this test."; return; }
+    if (String(guess).trim().toLowerCase() !== test.answer.toLowerCase()) return loseHeart();
+    box.innerHTML = `<b>Test ${step + 1} passed ${heartRow()}</b>${progress(step + 1)}<div class="test-result"><strong>Why it passes</strong><br>${esc(test.why)}</div><button id="nextTest" type="button">${step + 1 === tests.length ? "Finish verification" : "Next test"}</button>`;
+    $("nextTest").onclick = () => { step++; ask(""); };
+    $("nextTest").focus();
+  };
   const ask = (msg) => {
-    if (step >= picks.length) return finishBug(word);
-    const [q, opts, why] = QUIZ[picks[step]];
-    // Shuffle answers per card so the right one isn't always first.
-    const rot = (seed + step * 7) % opts.length;
-    const order = opts.map((o, i) => [o, i]).map((_, j, all) => all[(j + rot) % all.length]);
-    box.innerHTML = `<b>Patch accepted · test ${step + 1} of ${picks.length} ${heartRow()}</b>
-      <div class="quiz"><p class="q">${esc(q)}</p>${order.map(([o, i]) => `<button data-ok="${i === 0 ? 1 : 0}">${esc(o)}</button>`).join("")}</div>
+    if (step >= tests.length) return finishBug(word);
+    const test = tests[step];
+    box.innerHTML = `<b>Verification · ${step + 1} of ${tests.length} ${heartRow()}</b>${progress()}
+      <div class="quiz"><span class="topic">${esc(test.topic)}</span><p class="q">${esc(test.prompt)}</p>${test.snippet ? `<pre>${esc(test.snippet)}</pre>` : ""}
+      ${test.options ? test.options.map((option) => `<button type="button" data-answer="${esc(option)}">${esc(option)}</button>`).join("") : `<div class="row answer-row"><input id="quizAnswer" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Your answer" placeholder="Your answer"><button id="quizSubmit" type="button">Run test</button></div>`}</div>
       <div class="feedback dim" role="status" aria-live="polite">${msg || ""}</div>`;
-    box.querySelectorAll("button").forEach((btn) => (btn.onclick = () => {
-      if (btn.dataset.ok === "1") {
-        box.innerHTML = `<b>Test ${step + 1} passed ${heartRow()}</b><div class="test-result"><strong>Why it passes</strong><br>${esc(why)}</div><button id="nextTest" type="button">${step + 1 === picks.length ? "Finish verification" : "Next test"}</button>`;
-        $("nextTest").onclick = () => { step++; ask(""); };
-        $("nextTest").focus();
-      }
-      else { try { navigator.vibrate && navigator.vibrate(120); } catch {} loseHeart(); }
-    }));
-    box.querySelector("button")?.focus();
+    if (test.options) {
+      box.querySelectorAll("[data-answer]").forEach((btn) => { btn.onclick = () => check(btn.dataset.answer); });
+      box.querySelector("button")?.focus();
+    } else {
+      $("quizSubmit").onclick = () => check($("quizAnswer").value);
+      $("quizAnswer").onkeydown = (e) => { if (e.key === "Enter") check($("quizAnswer").value); };
+      if (!(window.matchMedia && matchMedia("(pointer: coarse)").matches)) $("quizAnswer").focus();
+    }
   };
   ask("");
 }
@@ -601,44 +595,45 @@ function showSquashed(r) {
   $("crash").hidden = false;
   setDebugStage(2);
   $("crash").querySelector(".found").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>
-    <div class="row"><button id="certGo" type="button">Save my certificate</button></div>
+    <div class="row"><button id="certGo" type="button">Preview my certificate</button></div>
     <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
-  $("certGo").onclick = () => saveCertificate(r);
+  $("certGo").onclick = () => previewCertificate(r);
   $("certGo").focus();
 }
 
-// Certificate as a PNG drawn on a canvas, so it saves to the phone's photos.
-function saveCertificate(r) {
-  const W = 1200, H = 800, c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const g = c.getContext("2d");
-  g.fillStyle = "#fff"; g.fillRect(0, 0, W, H);
-  g.fillStyle = "#365486"; g.fillRect(64, 64, W - 112, H - 112);            // offset shadow
-  g.fillStyle = "#fff"; g.fillRect(48, 48, W - 112, H - 112);
-  g.strokeStyle = "#1f2a44"; g.lineWidth = 6; g.strokeRect(48, 48, W - 112, H - 112);
-  g.textAlign = "center";
-  const line = (text, y, font, color) => { g.font = font; g.fillStyle = color; g.fillText(text, W / 2 - 8, y); };
-  const finish = () => {
-    line("NUS STUDENTS' COMPUTING CLUB", 230, "600 26px sans-serif", "#365486");
-    line("Certified Bug Squasher", 320, "700 72px sans-serif", "#365486");
-    line(r.name, 420, "700 54px sans-serif", "#1f2a44");
-    line(`#${r.rank} to squash the donut bug at the ${cfg.name}`, 490, "500 30px sans-serif", "#1f2a44");
-    line(`${cfg.date} · ${cfg.venue}`, 540, "500 26px sans-serif", "#5b6677");
-    line("commit-tea.", 650, "700 34px sans-serif", "#365486");
-    c.toBlob((blob) => {
-      const url = URL.createObjectURL(blob), a = document.createElement("a");
-      a.href = url; a.download = "bug-squasher.png";
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    }, "image/png");
-  };
-  const logo = new Image();
-  logo.onload = () => { const h = 96, w = (logo.width / logo.height) * h; g.drawImage(logo, W / 2 - 8 - w / 2, 92, w, h); finish(); };
-  logo.onerror = finish;
-  logo.src = "/logo.png";
+// Show the certificate before saving; release its Blob URL when the preview closes.
+async function previewCertificate(r) {
+  const cardCode = code, button = $("certGo"), box = $("crash").querySelector(".found");
+  button.disabled = true;
+  button.textContent = "Drawing certificate…";
+  let blob;
+  try {
+    blob = await BugCertificate.create({ name: r.name, rank: r.rank, code: cardCode, event: cfg.name, date: cfg.date, venue: cfg.venue });
+  } catch (e) {
+    if (code === cardCode && !$("crash").hidden && box.isConnected) {
+      button.disabled = false;
+      button.textContent = "Preview my certificate";
+      box.insertAdjacentHTML("beforeend", `<p class="feedback dim" role="status">${esc(e.message)}</p>`);
+    }
+    return;
+  }
+  if (code !== cardCode || $("crash").hidden || !box.isConnected) return;
+  if (certificateUrl) URL.revokeObjectURL(certificateUrl);
+  certificateUrl = URL.createObjectURL(blob);
+  box.innerHTML = `<b>Your certificate</b><img class="cert-preview" src="${certificateUrl}" alt="Bug Squasher certificate for ${esc(r.name)}">
+    <div class="row"><a class="btn download" href="${certificateUrl}" download="bug-squasher-${esc(cardCode)}.png">Download PNG</a><button id="certBack" type="button">Back</button></div>
+    <p class="dim">On iPhone, you can also press and hold the image to save it.</p>`;
+  $("certBack").onclick = () => { releaseCertificate(); showSquashed(r); };
+  box.querySelector(".download").focus();
+}
+
+function releaseCertificate() {
+  if (certificateUrl) URL.revokeObjectURL(certificateUrl);
+  certificateUrl = null;
 }
 
 function closeCrash() {
+  releaseCertificate();
   $("crash").hidden = true;
   if (crashReturnFocus?.isConnected && crashReturnFocus?.tabIndex >= 0) crashReturnFocus.focus();
   else if (!$("card").hidden) $("qrOpen").focus();
