@@ -74,6 +74,7 @@
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
   .mission-run { display: grid; justify-items: center; gap: 4px; width: 100%; padding: 14px; background: #354666; color: #fff; border-color: #ffbd44; box-shadow: 3px 3px 0 #ffbd44; }
   .mission-run .repair-donut { margin: 0; }
+  .mission-run > span { pointer-events: none; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
   .repair-donut.broken { filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
@@ -483,7 +484,8 @@ function renderMission(state, feedback = "") {
     <p class="feedback dim" role="status" aria-live="polite">${esc([feedback, state.hint].filter(Boolean).join(" "))}</p>`;
   $("missionBox").querySelectorAll("[data-choice]").forEach((button) => button.onclick = () => submitMission(state.progress, Number(button.dataset.choice)));
   if (needsRun) {
-    $("runBug").onclick = () => {
+    $("missionBox").onclick = (event) => {
+      if (!event.target.closest("#runBug")) return;
       $("runBug").hidden = true;
       $("missionBox").querySelector(".mission-log").hidden = false;
       $("missionBox").querySelector(".mission-options").hidden = false;
@@ -493,7 +495,10 @@ function renderMission(state, feedback = "") {
       try { navigator.vibrate && navigator.vibrate([50, 30, 90]); } catch {}
     };
     $("runBug").focus();
-  } else $("missionBox").querySelector("[data-choice]")?.focus();
+  } else {
+    $("missionBox").onclick = null;
+    $("missionBox").querySelector("[data-choice]")?.focus();
+  }
 }
 
 async function submitMission(stage, choice) {
