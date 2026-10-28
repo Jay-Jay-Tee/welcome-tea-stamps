@@ -15,13 +15,14 @@
   }
   function text(g, value, x, y, size, color, weight = 700, maxWidth) {
     let px = size;
-    do {
+    while (true) {
       g.font = `${weight} ${px}px "DM Sans", Arial, sans-serif`;
-      if (!maxWidth || g.measureText(value).width <= maxWidth) break;
+      if (!maxWidth || g.measureText(value).width <= maxWidth || px <= 16) break;
       px -= 2;
-    } while (px > 30);
+    }
     g.fillStyle = color;
-    g.fillText(value, x, y);
+    if (maxWidth) g.fillText(value, x, y, maxWidth);
+    else g.fillText(value, x, y);
     return g.measureText(value).width;
   }
   function donut(g, x, y) {

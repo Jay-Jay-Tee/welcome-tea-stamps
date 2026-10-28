@@ -69,13 +69,14 @@
   .mission-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #ffbd44; font: 700 12px "DM Sans", system-ui, sans-serif; text-transform: uppercase; }
   .mission-log { list-style: none; padding: 0; margin: 16px 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
   .mission-log li { margin: 8px 0; }
-  .mission-log button { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: 56px; padding: 12px; background: #172238; color: #fff; border-color: #69778f; box-shadow: none; text-align: left; font: inherit; overflow-wrap: anywhere; }
+  .mission-log button { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: 56px; padding: 12px; background: #fff; color: #1f2a44; border-color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; font: 600 14px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
   .mission-log button:hover, .mission-log button:focus-visible { border-color: #ffbd44; outline-color: #ffbd44; }
-  .mission-log .log-index { flex: none; color: #ffbd44; font-weight: 700; }
+  .mission-log .log-index { flex: none; color: #365486; font-weight: 700; }
   .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+  .repair-donut.broken { margin: 0 auto 8px; font-size: 3.25rem; filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
     .crash .row { display: block; }
     .crash .row button { width: 100%; margin-top: 10px; }
@@ -475,6 +476,7 @@ function renderMission(state, feedback = "") {
     <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
     ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: the glitch has reproduced a bug in commit-tea. Find where things first go wrong, then patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
     <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
+    ${state.logs ? `<div class="repair-donut broken" aria-hidden="true">🍩</div>` : ""}
     ${state.logs ? `<p><strong>Tap the first log line where the behavior goes wrong:</strong></p><ol class="mission-log">${state.logs.map((line, i) => `<li><button type="button" data-choice="${i}"><span class="log-index">${i + 1}.</span><span>${esc(line)}</span></button></li>`).join("")}</ol>` : ""}
     ${state.snippet ? `<pre class="mission-code">${esc(state.snippet)}</pre>` : ""}
     ${!state.logs ? `<div class="quiz mission-options">${options}</div>` : ""}
