@@ -89,6 +89,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
   app.set("trust proxy", 1); // Render terminates TLS in front of us, so req.protocol is https there
   app.use(express.json({ limit: "10kb" }));
   app.use(express.static(path.resolve("public")));
+  app.get("/staff-only", (_req, res) => res.sendFile("index.html", { root: path.resolve("public") }));
   app.get("/vendor/jsqr.js", (_req, res) => res.sendFile(path.resolve("node_modules/jsqr/dist/jsQR.js")));
 
   const baseUrl = (req: Request) => process.env.PUBLIC_URL?.replace(/\/$/, "") ?? `${req.protocol}://${req.get("host")}`;
