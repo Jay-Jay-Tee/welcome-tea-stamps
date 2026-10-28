@@ -48,6 +48,7 @@
   /* Footer and the planted "bug" (an easter egg, nothing actually breaks) */
   .foot { text-align: center; margin: 26px 0 6px; font-size: .85rem; color: var(--muted); }
   .foot b { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); }
+  .hall-link { display: block; text-align: center; text-decoration: none; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; }
   .crash { position: fixed; inset: 0; z-index: 30; background: #1f2a44; color: #e8ecf3; padding: max(18px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); font: 14px/1.5 ui-monospace, Menlo, monospace; overflow-y: auto; overscroll-behavior: contain; }
   .crash-inner { max-width: 520px; margin: 0 auto; }
   .crash-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; color: #ffbd44; font-weight: 700; }
@@ -221,7 +222,7 @@ async function loadCfg() {
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   showDonutsOut(cfg.donutsOut);
   const techStall = cfg.stalls.find((s) => s.id === "presidential");
-  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.`;
+  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.<br><a href="/hall.html" target="_blank" rel="noopener">See the Hall of Fame</a>`;
   return true;
 }
 
@@ -567,6 +568,7 @@ function showSquashed(r) {
   const stats = [r.seconds ? `Fixed in ${clock(r.seconds)}` : "", Number.isInteger(r.hearts) ? `${"\u2665".repeat(r.hearts)} left` : ""].filter(Boolean).join(" · ");
   $("missionBox").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>${stats ? `<p class="mission-hearts">${esc(stats)}</p>` : ""}
     <div class="row"><button id="certGo" type="button">Preview my certificate</button></div>
+    <div class="row"><a class="btn hall-link" href="/hall.html" target="_blank" rel="noopener">See the Hall of Fame</a></div>
     <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
   $("certGo").onclick = () => previewCertificate(r);
   $("certGo").focus();
