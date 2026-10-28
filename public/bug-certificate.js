@@ -25,47 +25,31 @@
     else g.fillText(value, x, y);
     return g.measureText(value).width;
   }
-  // A flattened ladybug under a stomping foot, on a gold splat. Centre at (x, y), about 330px wide.
-  function stomp(g, x, y, scale = 1) {
-    g.save(); g.translate(x, y); g.scale(scale, scale);
-    // splat
-    g.fillStyle = "#ffe08a";
-    g.beginPath();
-    for (let i = 0; i <= 18; i++) {
-      const a = (i / 18) * Math.PI * 2, r = i % 2 ? 62 : 92 + (i % 3) * 10;
-      const px = Math.cos(a) * r * 1.35, py = Math.sin(a) * r * 0.55 + 60;
-      i ? g.lineTo(px, py) : g.moveTo(px, py);
+  // A consistent vector badge: a bug, with a verified patch check.
+  function bugSeal(g, x, y) {
+    g.save(); g.translate(x, y);
+    g.strokeStyle = BLUE; g.lineWidth = 8; g.lineCap = "round"; g.lineJoin = "round";
+    for (const side of [-1, 1]) {
+      for (const dy of [-25, 6, 37]) {
+        g.beginPath(); g.moveTo(side * 36, dy); g.lineTo(side * 66, dy - 10); g.lineTo(side * 80, dy + 1); g.stroke();
+      }
+      g.beginPath(); g.moveTo(side * 12, -61); g.lineTo(side * 27, -83); g.stroke();
     }
-    g.closePath(); g.fill();
-    for (const [dx, dy, r] of [[-150, 40, 9], [140, 95, 7], [160, 30, 5], [-120, 110, 6]]) {
-      g.beginPath(); g.arc(dx, dy, r, 0, Math.PI * 2); g.fill();
+    g.fillStyle = BLUE;
+    g.beginPath(); g.arc(0, -47, 25, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(0, 8, 47, 59, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "#fff8e8"; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(0, -28); g.lineTo(0, 59); g.stroke();
+    g.fillStyle = GOLD;
+    for (const side of [-1, 1]) for (const dy of [-10, 19]) {
+      g.beginPath(); g.arc(side * 23, dy, 5, 0, Math.PI * 2); g.fill();
     }
-    // squashed ladybug: legs, then a wide flat shell
-    g.strokeStyle = INK; g.lineWidth = 5; g.lineCap = "round";
-    for (const side of [-1, 1]) for (const k of [-1, 0, 1]) {
-      g.beginPath(); g.moveTo(side * 40, 62 + k * 10); g.lineTo(side * 95, 50 + k * 26); g.lineTo(side * 112, 58 + k * 30); g.stroke();
-    }
-    g.fillStyle = INK; g.beginPath(); g.ellipse(-62, 60, 22, 15, 0, 0, Math.PI * 2); g.fill(); // head
-    g.fillStyle = "#ff605c"; g.beginPath(); g.ellipse(8, 62, 72, 26, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
-    g.beginPath(); g.moveTo(8, 36); g.lineTo(8, 88); g.stroke();
-    g.fillStyle = INK;
-    for (const [dx, dy] of [[-22, 52], [32, 54], [-12, 74], [44, 72], [12, 60]]) { g.beginPath(); g.arc(dx, dy, 6, 0, Math.PI * 2); g.fill(); }
-    // x x eyes
-    g.strokeStyle = "#fff"; g.lineWidth = 3;
-    for (const ex of [-70, -56]) { g.beginPath(); g.moveTo(ex - 4, 55); g.lineTo(ex + 4, 63); g.moveTo(ex + 4, 55); g.lineTo(ex - 4, 63); g.stroke(); }
-    // motion lines and the foot
-    g.strokeStyle = BLUE; g.lineWidth = 6;
-    for (const [lx, top] of [[-62, -98], [-84, -66], [62, -98], [84, -66]]) { g.beginPath(); g.moveTo(lx, top); g.lineTo(lx, top + 28); g.stroke(); }
-    g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = '112px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-    g.save(); g.translate(4, -40); g.rotate(-0.12); g.fillText("\u{1F9B6}", 0, 0); g.restore();
-    // stamp
-    g.save(); g.translate(132, -46); g.rotate(-0.16);
-    g.strokeStyle = "#d64541"; g.lineWidth = 4; roundPath(g, -92, -24, 184, 48, 8); g.stroke();
-    g.font = '700 30px "DM Sans", Arial, sans-serif'; g.fillStyle = "#d64541"; g.fillText("SQUASHED!", 0, 2);
-    g.restore();
-    g.textAlign = "left"; g.textBaseline = "alphabetic";
+    g.fillStyle = "#fff8e8"; g.beginPath(); g.arc(53, 55, 39, 0, Math.PI * 2); g.fill();
+    g.fillStyle = GOLD; g.beginPath(); g.arc(53, 55, 32, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = INK; g.lineWidth = 7;
+    g.beginPath(); g.moveTo(38, 55); g.lineTo(49, 66); g.lineTo(70, 44); g.stroke();
+    g.textAlign = "center";
+    text(g, "PATCH VERIFIED", 0, 117, 18, BLUE, 700);
     g.restore();
   }
 
@@ -113,7 +97,7 @@
     g.fillStyle = GOLD; g.beginPath(); g.arc(1340, 480, 166, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#fff8e8"; g.beginPath(); g.arc(1340, 480, 154, 0, Math.PI * 2); g.fill();
     g.textAlign = "left";
-    stomp(g, 1310, 478, 0.72);
+    bugSeal(g, 1340, 467);
     g.textAlign = "center";
     text(g, "FOUND. FIXED. VERIFIED.", 1340, 720, 20, "#fffdf8", 700, 350);
     g.strokeStyle = "#4d5a72"; g.lineWidth = 2; g.beginPath(); g.moveTo(1180, 775); g.lineTo(1500, 775); g.stroke();
