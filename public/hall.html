@@ -3,34 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bug Squashers</title>
+<title>Hall of Fame</title>
 <link rel="icon" href="/logo.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Quicksand:wght@500;700&display=swap">
 <link rel="stylesheet" href="/style.css">
 <style>
-  /* Big screen at the Tech Cell stall. Refreshes itself. */
-  main { max-width: 900px; }
-  .hero { text-align: center; margin: 10px 0 24px; }
+  /* Big screen at the stalls. Two boards side by side, stacked on phones. Refreshes itself. */
+  main { max-width: 1240px; }
+  .hero { text-align: center; margin: 10px 0 26px; }
   .hero h1 { font-size: 3.4rem; }
   .hero .kicker { font-size: 1.6rem; }
+  .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .board h2 { font-size: 1.9rem; text-align: center; margin-bottom: 4px; }
+  .board .sub { text-align: center; color: var(--muted); margin: 0 0 16px; }
   ol { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; align-items: center; gap: 18px; border: 2px solid var(--ink); border-radius: 14px; box-shadow: 5px 5px 0 var(--blue); padding: 14px 20px; margin: 0 6px 14px 0; background: #fff; font-size: 1.5rem; font-weight: 700; }
-  li .rank { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); min-width: 64px; }
-  li.first { background: #fff7e0; box-shadow: 5px 5px 0 #ffbd44; font-size: 1.9rem; }
-  li .when { margin-left: auto; font-size: 1rem; font-weight: 500; color: var(--muted); }
-  .fast { margin: 30px 0 10px; }
-  .fast h2 { font-size: 1.6rem; text-align: center; }
-  li .stat { font-size: 1rem; font-weight: 600; color: var(--muted); }
-  li .hearts { color: #ff605c; letter-spacing: 2px; font-size: 1.1rem; }
-  .empty { text-align: center; font-size: 1.4rem; color: var(--muted); margin-top: 40px; }
-  .how { text-align: center; color: var(--muted); margin-top: 26px; font-size: 1.1rem; }
-  @media (max-width: 600px) {
+  li { display: flex; align-items: center; gap: 14px; border: 2px solid var(--ink); border-radius: 14px; box-shadow: 5px 5px 0 var(--blue); padding: 12px 16px; margin: 0 6px 12px 0; background: #fff; font-size: 1.35rem; font-weight: 700; }
+  li .rank { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); min-width: 52px; }
+  li .name { overflow-wrap: anywhere; }
+  li.first { background: #fff7e0; box-shadow: 5px 5px 0 #ffbd44; font-size: 1.65rem; }
+  li .when { margin-left: auto; font-size: .95rem; font-weight: 500; color: var(--muted); white-space: nowrap; }
+  li .stat { font-size: .95rem; font-weight: 600; color: var(--muted); }
+  li .hearts { color: #ff605c; letter-spacing: 2px; font-size: 1.05rem; white-space: nowrap; }
+  .fast { margin: 24px 0 0; }
+  .fast h3 { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); font-size: 1.3rem; text-align: center; margin: 0 0 12px; }
+  .empty { text-align: center; font-size: 1.15rem; color: var(--muted); margin: 18px 0; }
+  .how { text-align: center; color: var(--muted); margin-top: 26px; font-size: 1.05rem; }
+  @media (max-width: 900px) {
+    .boards { grid-template-columns: 1fr; gap: 34px; }
     .hero h1 { font-size: 2.6rem; }
-    li, li.first { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 4px 10px; padding: 12px 14px; font-size: 1.2rem; }
-    li .rank { grid-row: 1 / span 2; min-width: 0; align-self: center; }
-    li .name { grid-column: 2; overflow-wrap: anywhere; }
-    li .hearts { grid-column: 3; grid-row: 1; justify-self: end; white-space: nowrap; }
-    li .when { grid-column: 3; grid-row: 2; justify-self: end; margin: 0; font-size: .82rem; white-space: nowrap; }
+    li, li.first { font-size: 1.15rem; padding: 10px 12px; gap: 10px; }
   }
 </style>
 </head>
@@ -39,35 +40,53 @@
   <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span></header>
   <div class="hero">
     <p class="kicker">commit-tea.</p>
-    <h1>Bug Squashers</h1>
-    <p class="muted">There's a bug hidden in the stamp card site. Get your Tech Cell stamp to start hunting.</p>
+    <h1>Hall of Fame</h1>
   </div>
-  <ol id="list"></ol>
-  <section class="fast" id="fastBox" hidden><h2>Fastest fixes</h2><ol id="fast"></ol></section>
-  <p class="empty" id="empty" hidden>Nobody has squashed it yet. Be the first.</p>
-  <p class="how">Squashed it? Show your screen at this stall.</p>
+  <div class="boards">
+    <section class="board">
+      <h2>First to the donut</h2>
+      <p class="sub">Five stamps, one donut. In the order they collected.</p>
+      <ol id="donuts"></ol>
+      <p class="empty" id="donutsEmpty" hidden>No donuts collected yet.</p>
+    </section>
+    <section class="board">
+      <h2>First to the bug</h2>
+      <p class="sub">There's a bug hidden in the stamp card site. Get your Tech Cell stamp to start hunting.</p>
+      <ol id="list"></ol>
+      <p class="empty" id="empty" hidden>Nobody has squashed it yet. Be the first.</p>
+      <section class="fast" id="fastBox" hidden><h3>Fastest fixes</h3><ol id="fast"></ol></section>
+    </section>
+  </div>
+  <p class="how">Squashed the bug? Show your screen at the Tech Cell stall.</p>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-async function load() {
-  try {
-    const rows = await (await fetch("/api/hall")).json();
-    $("empty").hidden = rows.length > 0;
-    const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-    const hearts = (n) => Number.isInteger(n) ? `<span class="hearts">${"\u2665".repeat(n)}</span>` : "";
-    $("list").innerHTML = rows.map((r) => {
-      const t = new Date(r.solvedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      return `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span class="name">${esc(r.name)}</span>${hearts(r.hearts)}<span class="when">${esc(t)}</span></li>`;
-    }).join("");
-    // Speedrun board: quickest solves first, ties go to more hearts left.
-    const fast = rows.filter((r) => Number.isInteger(r.seconds))
-      .sort((x, y) => x.seconds - y.seconds || (y.hearts ?? 0) - (x.hearts ?? 0)).slice(0, 5);
-    $("fastBox").hidden = !fast.length;
-    $("fast").innerHTML = fast.map((r, i) =>
-      `<li class="${i === 0 ? "first" : ""}"><span class="rank">${clock(r.seconds)}</span><span class="name">${esc(r.name)}</span>${hearts(r.hearts)}<span class="when stat">#${r.rank} overall</span></li>`).join("");
-  } catch {}
+const at = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+const hearts = (n) => Number.isInteger(n) ? `<span class="hearts">${"♥".repeat(n)}</span>` : "";
+
+async function loadBugs() {
+  const rows = await (await fetch("/api/hall")).json();
+  $("empty").hidden = rows.length > 0;
+  $("list").innerHTML = rows.map((r) =>
+    `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span class="name">${esc(r.name)}</span>${hearts(r.hearts)}<span class="when">${esc(at(r.solvedAt))}</span></li>`).join("");
+  // Speedrun board: quickest solves first, ties go to more hearts left.
+  const fast = rows.filter((r) => Number.isInteger(r.seconds))
+    .sort((x, y) => x.seconds - y.seconds || (y.hearts ?? 0) - (x.hearts ?? 0)).slice(0, 5);
+  $("fastBox").hidden = !fast.length;
+  $("fast").innerHTML = fast.map((r, i) =>
+    `<li class="${i === 0 ? "first" : ""}"><span class="rank">${clock(r.seconds)}</span><span class="name">${esc(r.name)}</span>${hearts(r.hearts)}<span class="when stat">#${r.rank} overall</span></li>`).join("");
 }
+
+async function loadDonuts() {
+  const rows = await (await fetch("/api/hall/donuts")).json();
+  $("donutsEmpty").hidden = rows.length > 0;
+  $("donuts").innerHTML = rows.slice(0, 20).map((r) =>
+    `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span class="name">${esc(r.name)}</span><span class="when">${esc(at(r.collectedAt))}</span></li>`).join("");
+}
+
+const load = () => Promise.allSettled([loadBugs(), loadDonuts()]);
 load();
 setInterval(load, 5000);
 </script>

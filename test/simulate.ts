@@ -207,6 +207,16 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.ok(!(await call("GET", "/api/hall")).body.some((h: any) => h.name === "fixme"), "removed from the hall");
 }
 
+// Donut Hall of Fame: everyone who collected a donut, in collection order, nickname or "Anonymous"
+{
+  const donuts = (await call("GET", "/api/hall/donuts")).body;
+  assert.equal(donuts.length, 100, "100 donuts were handed out above");
+  assert.deepEqual(donuts.map((d: any) => d.rank), donuts.map((_: unknown, i: number) => i + 1));
+  assert.ok(donuts.every((d: any) => d.name === "Anonymous" || /^p\d+$/.test(d.name)), "nickname or Anonymous only");
+  const times = donuts.map((d: any) => new Date(d.collectedAt).getTime());
+  assert.ok(times.every((t: number, i: number) => i === 0 || t >= times[i - 1]), "in collection order");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
 assert.equal(end.attendees, N + 6);
 assert.equal(end.completed, full.length);

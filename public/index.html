@@ -48,6 +48,9 @@
   /* Footer and the planted "bug" (an easter egg, nothing actually breaks) */
   .foot { text-align: center; margin: 26px 0 6px; font-size: .85rem; color: var(--muted); }
   .foot b { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); }
+  /* Hall of Fame link, top right of the header on every screen */
+  .hall-top { margin-left: auto; flex: none; font: 700 .9rem "DM Sans", system-ui, sans-serif; color: var(--blue); text-decoration: none; border: 2px solid var(--ink); border-radius: 10px; padding: 7px 11px; box-shadow: 3px 3px 0 #ffbd44; background: #fff; white-space: nowrap; }
+  .hall-top:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #ffbd44; }
   .hall-link { display: block; text-align: center; text-decoration: none; background: #fff; color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; }
   .crash { position: fixed; inset: 0; z-index: 30; background: #1f2a44; color: #e8ecf3; padding: max(18px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); font: 14px/1.5 ui-monospace, Menlo, monospace; overflow-y: auto; overscroll-behavior: contain; }
   .crash-inner { max-width: 520px; margin: 0 auto; }
@@ -111,7 +114,7 @@
 </head>
 <body>
 <main>
-  <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span></header>
+  <header class="top"><img src="/logo.png" alt=""><span>NUS Students'<br>Computing Club</span><a class="hall-top" href="/hall.html" target="_blank" rel="noopener">Hall of Fame</a></header>
 
   <p class="kicker" id="kicker">Stamp card</p>
   <h1 id="title">Welcome Tea</h1>
@@ -128,7 +131,7 @@
         </div>
       </div>
       <div class="row" style="display:block">
-        <label for="nick" class="muted">Nickname (optional, so volunteers know it's you)</label>
+        <label for="nick" class="muted">Nickname (optional, shown to volunteers and on the Hall of Fame)</label>
         <input id="nick" type="text" maxlength="30" autocomplete="off">
       </div>
       <div class="row"><button id="go">Get my stamp card</button></div>
@@ -222,7 +225,7 @@ async function loadCfg() {
   $("startHead").textContent = `Collect a stamp at all ${cfg.stalls.length} stalls`;
   showDonutsOut(cfg.donutsOut);
   const techStall = cfg.stalls.find((s) => s.id === "presidential");
-  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.<br><a href="/hall.html" target="_blank" rel="noopener">See the Hall of Fame</a>`;
+  if (techStall) $("bugHint").innerHTML = `<br>Found a bug? Tell the person at the ${esc(techStall.name)} stall.`;
   return true;
 }
 
