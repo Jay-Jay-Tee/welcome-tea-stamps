@@ -101,7 +101,6 @@
     g.textAlign = "center";
     text(g, "FOUND. FIXED. VERIFIED.", 1340, 720, 20, "#fffdf8", 700, 350);
     g.strokeStyle = "#4d5a72"; g.lineWidth = 2; g.beginPath(); g.moveTo(1180, 775); g.lineTo(1500, 775); g.stroke();
-    text(g, "COMMIT-TEA. REPAIR LAB", 1340, 826, 18, "#c5cfdb", 500, 330);
     text(g, `CARD ${code}`, 1340, 871, 20, GOLD, 700, 330);
     g.textAlign = "left";
 
