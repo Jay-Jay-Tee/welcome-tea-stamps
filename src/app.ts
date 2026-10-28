@@ -482,6 +482,72 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     }),
   );
 
+  // Event analytics for the team report: totals and timings only. No card codes and no nicknames,
+  // except the top 3 Hall of Fame names, which were already shown publicly.
+  app.get(
+    "/api/admin/analytics",
+    adminAuth,
+    wrap(async (_req, res) => {
+      const attendees = (await pool.query("select id, created_at, donut_claimed_at from attendees")).rows as { id: number; created_at: Date; donut_claimed_at: Date | null }[];
+      const stamps = ((await pool.query("select attendee_id, stall_id, swag_given, created_at from stamps")).rows as (StampRow & { created_at: Date })[])
+        .filter((s) => stallIds.has(s.stall_id));
+      const missions = (await pool.query("select stage, started_at, completed_at, mistakes, reboots from bug_missions")).rows as
+        { stage: number; started_at: Date | null; completed_at: Date | null; mistakes: number; reboots: number }[];
+      const squashers = (await pool.query("select name, seconds, hearts, solved_at from squashers order by solved_at, attendee_id")).rows as
+        { name: string; seconds: number | null; hearts: number | null; solved_at: Date }[];
+      const donutsHall = (await pool.query("select nickname from attendees where donut_claimed_at is not null order by donut_claimed_at, id")).rows as { nickname: string | null }[];
+
+      // 15-minute buckets in Singapore time (UTC+8), as "HH:MM".
+      const bucket = (d: Date) => {
+        const t = new Date(new Date(d).getTime() + 8 * 3600 * 1000);
+        return `${String(t.getUTCHours()).padStart(2, "0")}:${String(Math.floor(t.getUTCMinutes() / 15) * 15).padStart(2, "0")}`;
+      };
+      const countBy = <T>(xs: T[], key: (x: T) => string) => xs.reduce<Record<string, number>>((m, x) => { const k = key(x); m[k] = (m[k] || 0) + 1; return m; }, {});
+      const perCard = new Map<number, number>();
+      for (const s of stamps) perCard.set(s.attendee_id, (perCard.get(s.attendee_id) || 0) + 1);
+      const need = cfg.reward.stampsRequired;
+      const distribution = Array.from({ length: need + 1 }, (_, n) => attendees.filter((a) => (perCard.get(a.id) || 0) === n).length);
+      const solvedTimes = squashers.map((s) => s.seconds).filter((x): x is number => Number.isInteger(x)).sort((a, b) => a - b);
+      const median = (xs: number[]) => xs.length ? (xs.length % 2 ? xs[(xs.length - 1) / 2] : Math.round((xs[xs.length / 2 - 1] + xs[xs.length / 2]) / 2)) : null;
+
+      res.json({
+        event: { name: cfg.name, date: cfg.date, time: cfg.time, venue: cfg.venue },
+        generatedAt: new Date().toISOString(),
+        totals: {
+          cards: attendees.length,
+          stamps: stamps.length,
+          cardsWithAStamp: attendees.filter((a) => (perCard.get(a.id) || 0) > 0).length,
+          fullCards: attendees.filter((a) => (perCard.get(a.id) || 0) >= need).length,
+          donuts: attendees.filter((a) => a.donut_claimed_at).length,
+          swagHandedOut: stamps.filter((s) => s.swag_given).length,
+          averageStampsPerCard: attendees.length ? Math.round((stamps.length / attendees.length) * 10) / 10 : 0,
+        },
+        stampsNeeded: need,
+        stampDistribution: distribution, // index = number of stamps on a card
+        stalls: cfg.stalls.map((st) => ({
+          id: st.id, name: st.name, color: st.color,
+          stamps: stamps.filter((s) => s.stall_id === st.id).length,
+          swag: stamps.filter((s) => s.stall_id === st.id && s.swag_given).length,
+        })),
+        timeline: {
+          cards: countBy(attendees, (a) => bucket(a.created_at)),
+          stamps: countBy(stamps, (s) => bucket(s.created_at)),
+          donuts: countBy(attendees.filter((a) => a.donut_claimed_at), (a) => bucket(a.donut_claimed_at as Date)),
+        },
+        bugHunt: {
+          opened: missions.filter((m) => m.started_at).length,
+          solved: squashers.length,
+          medianSeconds: median(solvedTimes),
+          fastestSeconds: solvedTimes[0] ?? null,
+          heartsLeft: countBy(squashers.filter((s) => Number.isInteger(s.hearts)), (s) => String(s.hearts)),
+          reboots: missions.reduce((n, m) => n + (m.reboots || 0), 0),
+          topSquashers: squashers.slice(0, 3).map((s) => ({ name: s.name, seconds: s.seconds, hearts: s.hearts })),
+        },
+        hallOfFame: { donutBoard: donutsHall.length, bugBoard: squashers.length, topDonuts: donutsHall.slice(0, 3).map((d) => d.nickname || "Anonymous") },
+      });
+    }),
+  );
+
   app.get(
     "/api/admin/export.csv",
     adminAuth,

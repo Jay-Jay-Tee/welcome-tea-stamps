@@ -263,6 +263,17 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.ok(!after.some((n: any) => n.code === named.code && n.board === "donut"), "hidden name drops off the list");
 }
 
+// Analytics export: admin only, aggregated, no card codes
+{
+  assert.equal((await call("GET", "/api/admin/analytics")).status, 401, "admin only");
+  const an = (await call("GET", "/api/admin/analytics", undefined, admin)).body;
+  assert.equal(an.totals.stamps, an.stalls.reduce((n: number, s: any) => n + s.stamps, 0), "stall stamps add up");
+  assert.equal(an.stampDistribution.reduce((n: number, x: number) => n + x, 0), an.totals.cards, "every card counted once");
+  assert.ok(an.totals.donuts >= 100 && an.bugHunt.solved >= 1);
+  assert.ok(Object.keys(an.timeline.stamps).every((k) => /^\d\d:\d\d$/.test(k)), "15-minute SGT buckets");
+  assert.ok(!JSON.stringify(an).match(/"code"/), "no card codes in the export");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
 assert.equal(end.attendees, N + 9);
 assert.equal(end.completed, full.length);

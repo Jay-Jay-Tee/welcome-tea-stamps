@@ -48,6 +48,7 @@
     <p id="fixOut" class="muted"></p>
 
     <hr>
+    <div class="row"><button id="analytics">Download analytics for the team report</button></div>
     <div class="row"><button id="csv" class="ghost">Download CSV</button><button id="reset" class="danger">Wipe all cards and stamps</button></div>
   </section>
 </main>
@@ -158,6 +159,11 @@ $("hideName").onclick = async () => {
 };
 $("rmStamp").onclick = fix(false);
 
+// Event totals and timings only (no card codes or nicknames), for the post-event report.
+$("analytics").onclick = async () => {
+  const b = await (await call("GET", "/api/admin/analytics")).blob();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "welcome-tea-analytics.json"; a.click();
+};
 $("csv").onclick = async () => {
   const b = await (await call("GET", "/api/admin/export.csv")).blob();
   const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "welcome-tea-stamps.csv"; a.click();
