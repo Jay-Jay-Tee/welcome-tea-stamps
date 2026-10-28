@@ -186,12 +186,27 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.ok(sqCols.includes("seconds") && sqCols.includes("hearts"));
 }
 
+// Admin Fix a card: donut and bug hunt by hand
+{
+  const card = (await call("POST", "/api/cards", { nickname: "fixme" })).body.code as string;
+  assert.equal((await call("POST", "/api/admin/donut", { code: card, on: true })).status, 401, "admin only");
+  assert.equal((await call("POST", "/api/admin/donut", { code: card, on: true }, admin)).body.donutClaimed, true);
+  assert.equal((await call("POST", "/api/admin/donut", { code: card, on: false }, admin)).body.donutClaimed, false);
+  const marked = (await call("POST", "/api/admin/bug", { code: card, on: true }, admin)).body;
+  assert.equal(marked.bugSquashed, true);
+  assert.equal((await call("GET", `/api/cards/${card}/bug-hunt`)).status, 403, "card page still needs the Tech stamp to show the hunt");
+  assert.ok((await call("GET", "/api/hall")).body.some((h: any) => h.name === "fixme"), "marked card joins the hall under its nickname");
+  const unmarked = (await call("POST", "/api/admin/bug", { code: card, on: false }, admin)).body;
+  assert.equal(unmarked.bugSquashed, false);
+  assert.ok(!(await call("GET", "/api/hall")).body.some((h: any) => h.name === "fixme"), "removed from the hall");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 4);
+assert.equal(end.attendees, N + 5);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 5);
+assert.equal(csv.trim().split("\n").length, N + 6);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

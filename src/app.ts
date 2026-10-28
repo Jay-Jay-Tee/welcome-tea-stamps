@@ -372,6 +372,40 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     }),
   );
 
+  // Manual fixes from the admin "Fix a card" box: mark or undo the donut, mark or undo the bug hunt.
+  const adminCardView = async (a: Attendee) => ({
+    ...(await cardView(a)),
+    bugSquashed: (await pool.query("select 1 from squashers where attendee_id=$1", [a.id])).rows.length > 0,
+  });
+
+  app.post(
+    "/api/admin/donut",
+    adminAuth,
+    wrap(async (req, res) => {
+      const a = await findAttendee(req.body?.code);
+      if (req.body?.on === false) await pool.query("update attendees set donut_claimed_at=null where id=$1", [a.id]);
+      else await pool.query("update attendees set donut_claimed_at=now() where id=$1 and donut_claimed_at is null", [a.id]);
+      res.json(await adminCardView((await findAttendee(a.code))));
+    }),
+  );
+
+  app.post(
+    "/api/admin/bug",
+    adminAuth,
+    wrap(async (req, res) => {
+      const a = await findAttendee(req.body?.code);
+      if (req.body?.on === false) {
+        await pool.query("delete from squashers where attendee_id=$1", [a.id]);
+        await pool.query("delete from bug_missions where attendee_id=$1", [a.id]);
+      } else {
+        await pool.query("insert into bug_missions (attendee_id, seed) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, crypto.randomInt(0, 2147483647)]);
+        await pool.query("update bug_missions set stage=$2, completed_at=coalesce(completed_at, now()) where attendee_id=$1", [a.id, MISSION_DONE]);
+        await pool.query("insert into squashers (attendee_id, name) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, a.nickname || "Anonymous squasher"]);
+      }
+      res.json(await adminCardView(a));
+    }),
+  );
+
   app.post(
     "/api/admin/unredeem",
     adminAuth,

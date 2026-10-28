@@ -35,11 +35,10 @@
 
     <hr>
     <h2>Fix a card</h2>
-    <p class="muted">For when a volunteer missed a stamp, stamped the wrong person, or the donut corner scanned the wrong card. Type the code from the person's card page, pick the stall, then add or remove the stamp. Undo donut claim doesn't need a stall.</p>
+    <p class="muted">For when a volunteer missed a stamp, stamped the wrong person, or the donut corner scanned the wrong card. Type the code from the person's card page, pick a stall (or Donut collected, or Bug squashed at the bottom), then use the buttons.</p>
     <input id="fixCode" type="text" placeholder="Their 8 character code" autocapitalize="characters" autocomplete="off" spellcheck="false">
     <div class="row"><select id="fixStall"></select></div>
     <div class="row"><button id="addStamp">Add stamp</button><button id="rmStamp" class="ghost">Remove stamp</button></div>
-    <div class="row"><button id="unredeem" class="ghost">Undo donut claim</button></div>
     <p id="fixOut" class="muted"></p>
 
     <hr>
@@ -82,7 +81,8 @@ async function load() {
       <td><button class="ghost" data-qr="${esc(s.id)}">QR</button> <button class="danger" data-rotate="${esc(s.id)}">New key</button></td>
     </tr>`).join("");
   if (!$("fixStall").children.length)
-    $("fixStall").innerHTML = stats.stations.filter((s) => s.kind === "stall").map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+    $("fixStall").innerHTML = stats.stations.filter((s) => s.kind === "stall").map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("") +
+      `<optgroup label="Other"><option value="__donut">Donut collected</option><option value="__bug">Bug squashed</option></optgroup>`;
 }
 
 // The login QR needs the admin header, so fetch it and show it as a blob instead of a plain <img src>.
@@ -107,16 +107,25 @@ $("pin").onkeydown = (e) => { if (e.key === "Enter") $("go").click(); };
 $("reveal").onclick = () => { showKeys = !showKeys; $("reveal").textContent = showKeys ? "Hide keys" : "Show keys"; load(); };
 $("toggle").onclick = async () => { await call("POST", "/api/admin/donuts-out", { out: !stats.donutsOut }); load(); };
 
-const fix = (path, extra) => async () => {
+// The dropdown holds the stalls plus "Donut collected" and "Bug squashed"; the two buttons follow the choice.
+const FIX_LABELS = { __donut: ["Mark donut collected", "Undo donut claim"], __bug: ["Mark bug squashed", "Remove bug squash"] };
+function fixLabels() {
+  const [add, rm] = FIX_LABELS[$("fixStall").value] || ["Add stamp", "Remove stamp"];
+  $("addStamp").textContent = add; $("rmStamp").textContent = rm;
+}
+$("fixStall").onchange = fixLabels;
+const fix = (on) => async () => {
+  const target = $("fixStall").value;
+  const path = target === "__donut" ? "/api/admin/donut" : target === "__bug" ? "/api/admin/bug" : "/api/admin/stamp";
   try {
-    const v = await (await call("POST", path, { code: $("fixCode").value, stallId: $("fixStall").value, ...extra })).json();
-    $("fixOut").textContent = `${v.code}: ${v.stamps.length} of ${v.stampsRequired} stamps, donut ${v.donutClaimed ? "collected" : "not collected"}.`;
+    const v = await (await call("POST", path, { code: $("fixCode").value, stallId: target, on })).json();
+    $("fixOut").textContent = `${v.code}: ${v.stamps.length} of ${v.stampsRequired} stamps, donut ${v.donutClaimed ? "collected" : "not collected"}` +
+      (typeof v.bugSquashed === "boolean" ? `, bug ${v.bugSquashed ? "squashed" : "not squashed"}.` : ".");
     load();
   } catch (e) { $("fixOut").textContent = e.message; }
 };
-$("addStamp").onclick = fix("/api/admin/stamp", { on: true });
-$("rmStamp").onclick = fix("/api/admin/stamp", { on: false });
-$("unredeem").onclick = fix("/api/admin/unredeem", {});
+$("addStamp").onclick = fix(true);
+$("rmStamp").onclick = fix(false);
 
 $("csv").onclick = async () => {
   const b = await (await call("GET", "/api/admin/export.csv")).blob();
