@@ -72,6 +72,10 @@
   .mission-log button { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: 56px; padding: 12px; background: #fff; color: #1f2a44; border-color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; font: 600 14px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
   .mission-log button:hover, .mission-log button:focus-visible { border-color: #ffbd44; outline-color: #ffbd44; }
   .mission-log .log-index { flex: none; color: #365486; font-weight: 700; }
+  .mission-hearts { color: #ff605c; letter-spacing: 2px; font-size: 15px; }
+  .mission-hearts .lost { color: #4a556d; }
+  .reboot { text-align: center; padding: 8px 0; }
+  .reboot b { color: #ff8a80; font-size: 1.5rem; }
   .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
@@ -466,13 +470,26 @@ async function openMission() {
   }
 }
 
+const heartsHtml = (state) => state.maxHearts
+  ? `<span class="mission-hearts" aria-label="${state.hearts} of ${state.maxHearts} hearts left">${"\u2665".repeat(state.hearts)}<span class="lost">${"\u2665".repeat(state.maxHearts - state.hearts)}</span></span>`
+  : "";
+const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
 function renderMission(state, feedback = "") {
   missionState = state;
   updateBugClues();
   if (state.stage === "complete") { finishMission(); return; }
+  // Out of hearts: the server has already swapped in a different bug. Show a short reboot screen first.
+  if (feedback === "reboot") {
+    $("missionBox").innerHTML = `<div class="reboot"><b>Segmentation fault</b><p>Out of hearts. The lab rebooted with a different bug. Your clock is still running.</p><button id="rebootGo" type="button">Start the new bug</button></div>`;
+    try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch {}
+    $("rebootGo").onclick = () => renderMission(state);
+    $("rebootGo").focus();
+    return;
+  }
   const labels = { diagnose: "01 Find the fault", patch: "02 Patch the bug", verify: "03 Prove your fix" };
   const options = state.options?.map((option, i) => `<button type="button" data-choice="${i}">${esc(option)}</button>`).join("") || "";
-  $("missionBox").innerHTML = `<div class="mission-top"><span>${labels[state.stage]}</span><span>${state.progress} / ${state.total} steps</span></div>
+  $("missionBox").innerHTML = `<div class="mission-top"><span>${labels[state.stage]}</span><span>${heartsHtml(state)} ${state.progress} / ${state.total} steps</span></div>
     <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
     ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: the glitch has reproduced a bug in commit-tea. Find where things first go wrong, then patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
     <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
@@ -522,7 +539,8 @@ async function registerSquash(name) {
 
 function showSquashed(r) {
   const tech = (cfg.stalls.find((s) => s.id === TECH_ID) || cfg.stalls[0]).name;
-  $("missionBox").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>
+  const stats = [r.seconds ? `Fixed in ${clock(r.seconds)}` : "", Number.isInteger(r.hearts) ? `${"\u2665".repeat(r.hearts)} left` : ""].filter(Boolean).join(" · ");
+  $("missionBox").innerHTML = `<b>#${r.rank} to squash the donut bug</b><p>${esc(r.name)}, you're in the Hall of Fame.</p>${stats ? `<p class="mission-hearts">${esc(stats)}</p>` : ""}
     <div class="row"><button id="certGo" type="button">Preview my certificate</button></div>
     <p>Show this screen at the ${esc(tech)} stall.</p><p class="code">Card ${esc(code)}</p>`;
   $("certGo").onclick = () => previewCertificate(r);

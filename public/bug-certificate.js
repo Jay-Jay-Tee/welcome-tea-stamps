@@ -25,8 +25,8 @@
     else g.fillText(value, x, y);
     return g.measureText(value).width;
   }
-  function donut(g, x, y) {
-    g.save(); g.translate(x, y); g.rotate(-0.18);
+  function donut(g, x, y, scale = 1) {
+    g.save(); g.translate(x, y); g.rotate(-0.18); g.scale(scale, scale);
     g.fillStyle = "#a65c38";
     g.beginPath(); g.arc(6, 11, 130, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#d89255";
@@ -46,6 +46,50 @@
     }
     g.restore();
   }
+  // A flattened ladybug under a stomping foot, on a gold splat. Centre at (x, y), about 330px wide.
+  function stomp(g, x, y) {
+    g.save(); g.translate(x, y);
+    // splat
+    g.fillStyle = "#ffe08a";
+    g.beginPath();
+    for (let i = 0; i <= 18; i++) {
+      const a = (i / 18) * Math.PI * 2, r = i % 2 ? 62 : 92 + (i % 3) * 10;
+      const px = Math.cos(a) * r * 1.35, py = Math.sin(a) * r * 0.55 + 60;
+      i ? g.lineTo(px, py) : g.moveTo(px, py);
+    }
+    g.closePath(); g.fill();
+    for (const [dx, dy, r] of [[-150, 40, 9], [140, 95, 7], [160, 30, 5], [-120, 110, 6]]) {
+      g.beginPath(); g.arc(dx, dy, r, 0, Math.PI * 2); g.fill();
+    }
+    // squashed ladybug: legs, then a wide flat shell
+    g.strokeStyle = INK; g.lineWidth = 5; g.lineCap = "round";
+    for (const side of [-1, 1]) for (const k of [-1, 0, 1]) {
+      g.beginPath(); g.moveTo(side * 40, 62 + k * 10); g.lineTo(side * 95, 50 + k * 26); g.lineTo(side * 112, 58 + k * 30); g.stroke();
+    }
+    g.fillStyle = INK; g.beginPath(); g.ellipse(-62, 60, 22, 15, 0, 0, Math.PI * 2); g.fill(); // head
+    g.fillStyle = "#ff605c"; g.beginPath(); g.ellipse(8, 62, 72, 26, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = INK; g.lineWidth = 4; g.stroke();
+    g.beginPath(); g.moveTo(8, 36); g.lineTo(8, 88); g.stroke();
+    g.fillStyle = INK;
+    for (const [dx, dy] of [[-22, 52], [32, 54], [-12, 74], [44, 72], [12, 60]]) { g.beginPath(); g.arc(dx, dy, 6, 0, Math.PI * 2); g.fill(); }
+    // x x eyes
+    g.strokeStyle = "#fff"; g.lineWidth = 3;
+    for (const ex of [-70, -56]) { g.beginPath(); g.moveTo(ex - 4, 55); g.lineTo(ex + 4, 63); g.moveTo(ex + 4, 55); g.lineTo(ex - 4, 63); g.stroke(); }
+    // motion lines and the foot
+    g.strokeStyle = BLUE; g.lineWidth = 6;
+    for (const [lx, top] of [[-62, -98], [-84, -66], [62, -98], [84, -66]]) { g.beginPath(); g.moveTo(lx, top); g.lineTo(lx, top + 28); g.stroke(); }
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = '112px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    g.save(); g.translate(4, -40); g.rotate(-0.12); g.fillText("\u{1F9B6}", 0, 0); g.restore();
+    // stamp
+    g.save(); g.translate(132, -46); g.rotate(-0.16);
+    g.strokeStyle = "#d64541"; g.lineWidth = 4; roundPath(g, -92, -24, 184, 48, 8); g.stroke();
+    g.font = '700 30px "DM Sans", Arial, sans-serif'; g.fillStyle = "#d64541"; g.fillText("SQUASHED!", 0, 2);
+    g.restore();
+    g.textAlign = "left"; g.textBaseline = "alphabetic";
+    g.restore();
+  }
+
   async function create({ name, rank, code, date, venue }) {
     if (document.fonts?.ready) await document.fonts.ready;
     const logo = new Image();
@@ -82,11 +126,13 @@
     text(g, "OFFICIAL BUG HUNT CERTIFICATE", 140, 300, 25, "#5b6677", 700);
     text(g, "BUG SQUASHER", 137, 408, 91, BLUE, 700, 950);
     text(g, "PATCH APPLIED. TESTS PASSED.", 141, 466, 31, INK, 700);
-    donut(g, 1262, 389);
+    donut(g, 1300, 352, 0.78);
+
+    stomp(g, 1262, 590);
 
     text(g, "Proudly awarded to", 142, 577, 30, "#5b6677", 500);
     const displayName = String(name || "Anonymous squasher");
-    const nameWidth = text(g, displayName, 139, 665, 79, INK, 700, 1040);
+    const nameWidth = text(g, displayName, 139, 665, 79, INK, 700, 900);
     const underlineWidth = Math.min(nameWidth + 18, displayName.length * 50, 900);
     g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(142 + underlineWidth, 689); g.stroke();
     text(g, "For finding the hidden donut bug and repairing it at the Computing Club Welcome Tea.", 142, 751, 28, INK, 500, 1170);

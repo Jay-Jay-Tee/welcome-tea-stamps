@@ -111,7 +111,7 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
 
 // Repair mission: server owns progress and Hall registration requires completion.
 {
-  const { BUG_STALL, isCorrect } = await import("../src/bughunt.js");
+  const { BUG_STALL, HEARTS, isCorrect, sceneIndex } = await import("../src/bughunt.js");
   const fresh = (await call("POST", "/api/cards", { nickname: "hunter" })).body.code as string;
   assert.equal((await call("GET", `/api/cards/${fresh}/bug-hunt`)).status, 403, "no Tech stamp, no mission");
   await call("POST", "/api/station/stamp", { code: fresh }, { "x-key": pins[BUG_STALL] });
@@ -121,10 +121,11 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   for (let stage = 0; stage < 5; stage++) {
     const before = (await call("GET", `/api/cards/${fresh}/bug-hunt`)).body;
     assert.equal(before.progress, stage, "reload resumes at current step");
-    const wrong = before.options.findIndex((_: unknown, i: number) => !isCorrect(seed, stage, i));
-    const failed = (await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: wrong })).body;
-    assert.equal(failed.progress, stage, "wrong answer does not advance");
     if (stage === 0) {
+      const wrong = before.options.findIndex((_: unknown, i: number) => !isCorrect(seed, stage, i));
+      const failed = (await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: wrong })).body;
+      assert.equal(failed.progress, stage, "wrong answer does not advance");
+      assert.equal(failed.hearts, HEARTS - 1, "wrong answer costs a heart");
       await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: wrong });
       assert.ok((await call("GET", `/api/cards/${fresh}/bug-hunt`)).body.hint, "hint after two misses");
     }
@@ -136,6 +137,8 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.equal((await call("GET", `/api/cards/${fresh}/bug-hunt`)).body.stage, "complete");
   const first = (await call("POST", `/api/cards/${fresh}/squash`, { name: "<b>Ada</b>" })).body;
   assert.equal(first.rank, 1);
+  assert.equal(first.hearts, HEARTS - 2, "hall records hearts left");
+  assert.ok(Number.isInteger(first.seconds) && first.seconds >= 1, "hall records time taken");
   assert.equal(first.name, "bAda/b", "angle brackets stripped");
   assert.equal((await call("POST", `/api/cards/${fresh}/squash`, { name: "again" })).body.rank, 1, "solving twice keeps rank");
   const second = (await call("POST", "/api/cards", {})).body.code as string;
@@ -146,14 +149,49 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.equal((await call("POST", `/api/cards/${second}/squash`, {})).body.rank, 2);
   const hall = (await call("GET", "/api/hall")).body;
   assert.deepEqual(hall.map((h: any) => h.name), ["bAda/b", "Anonymous squasher"]);
+  assert.equal(hall[0].hearts, HEARTS - 2);
+  assert.equal(hall[1].seconds, null, "old entries without timing still list");
+
+  // Out of hearts: the lab reboots with a different bug, full hearts, back to step 1.
+  const third = (await call("POST", "/api/cards", {})).body.code as string;
+  await call("POST", "/api/station/stamp", { code: third }, { "x-key": pins[BUG_STALL] });
+  const start = (await call("GET", `/api/cards/${third}/bug-hunt`)).body;
+  const thirdId = (await pool.query("select id from attendees where code=$1", [third])).rows[0].id;
+  const seed3 = (await pool.query("select seed from bug_missions where attendee_id=$1", [thirdId])).rows[0].seed as number;
+  const wrong3 = start.options.findIndex((_: unknown, i: number) => !isCorrect(seed3, 0, i));
+  let last: any;
+  for (let i = 0; i < HEARTS; i++) last = (await call("POST", `/api/cards/${third}/bug-hunt/actions`, { stage: 0, choice: wrong3 })).body;
+  assert.equal(last.feedback, "reboot", "losing the last heart reboots");
+  assert.equal(last.hearts, HEARTS, "hearts refilled after reboot");
+  assert.equal(last.progress, 0);
+  const seedAfter = (await pool.query("select seed, reboots from bug_missions where attendee_id=$1", [thirdId])).rows[0];
+  assert.notEqual(sceneIndex(seedAfter.seed), sceneIndex(seed3), "reboot picks a different bug");
+  assert.equal(seedAfter.reboots, 1);
+  assert.notEqual(last.title, start.title);
+}
+
+// Live databases created before hearts existed get the new columns, keeping their rows.
+{
+  const { migrate } = await import("../src/db.js");
+  const oldPool = await makePool();
+  await oldPool.query("create table bug_missions (attendee_id int primary key, seed int not null, stage int not null default 0, attempts int not null default 0, completed_at timestamptz)");
+  await oldPool.query("create table squashers (attendee_id int primary key, name text not null, solved_at timestamptz default now())");
+  await oldPool.query("insert into bug_missions (attendee_id, seed, stage) values (1, 42, 2)");
+  await migrate(oldPool);
+  await migrate(oldPool); // running twice is harmless
+  const row = (await oldPool.query("select * from bug_missions")).rows[0];
+  assert.equal(row.stage, 2, "existing progress kept");
+  assert.equal(row.mistakes, 0);
+  const sqCols = (await oldPool.query("select column_name from information_schema.columns where table_name = 'squashers'")).rows.map((r: any) => r.column_name);
+  assert.ok(sqCols.includes("seconds") && sqCols.includes("hearts"));
 }
 
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 3);
+assert.equal(end.attendees, N + 4);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 4);
+assert.equal(csv.trim().split("\n").length, N + 5);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

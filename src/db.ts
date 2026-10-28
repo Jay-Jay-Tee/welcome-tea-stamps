@@ -59,6 +59,19 @@ export async function migrate(pool: Pool) {
     seed int not null,
     stage int not null default 0,
     attempts int not null default 0,
-    completed_at timestamptz
+    completed_at timestamptz,
+    mistakes int not null default 0,
+    reboots int not null default 0,
+    started_at timestamptz default now()
   )`);
+  // Columns added after the first deploy: add them to existing tables instead of recreating (keeps live data).
+  const addColumn = async (table: string, column: string, type: string) => {
+    const cols = (await pool.query("select column_name from information_schema.columns where table_name = $1", [table])).rows.map((r) => r.column_name);
+    if (!cols.includes(column)) await pool.query(`alter table ${table} add column ${column} ${type}`);
+  };
+  await addColumn("bug_missions", "mistakes", "int not null default 0");
+  await addColumn("bug_missions", "reboots", "int not null default 0");
+  await addColumn("bug_missions", "started_at", "timestamptz");
+  await addColumn("squashers", "seconds", "int");
+  await addColumn("squashers", "hearts", "int");
 }

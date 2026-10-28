@@ -18,6 +18,10 @@
   li .rank { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); min-width: 64px; }
   li.first { background: #fff7e0; box-shadow: 5px 5px 0 #ffbd44; font-size: 1.9rem; }
   li .when { margin-left: auto; font-size: 1rem; font-weight: 500; color: var(--muted); }
+  .fast { margin: 30px 0 10px; }
+  .fast h2 { font-size: 1.6rem; text-align: center; }
+  li .stat { font-size: 1rem; font-weight: 600; color: var(--muted); }
+  li .hearts { color: #ff605c; letter-spacing: 2px; font-size: 1.1rem; }
   .empty { text-align: center; font-size: 1.4rem; color: var(--muted); margin-top: 40px; }
   .how { text-align: center; color: var(--muted); margin-top: 26px; font-size: 1.1rem; }
 </style>
@@ -31,6 +35,7 @@
     <p class="muted">There's a bug hidden in the stamp card site. Get your Tech Cell stamp to start hunting.</p>
   </div>
   <ol id="list"></ol>
+  <section class="fast" id="fastBox" hidden><h2>Fastest fixes</h2><ol id="fast"></ol></section>
   <p class="empty" id="empty" hidden>Nobody has squashed it yet. Be the first.</p>
   <p class="how">Squashed it? Show your screen at this stall.</p>
 </main>
@@ -41,10 +46,18 @@ async function load() {
   try {
     const rows = await (await fetch("/api/hall")).json();
     $("empty").hidden = rows.length > 0;
+    const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+    const hearts = (n) => Number.isInteger(n) ? `<span class="hearts">${"\u2665".repeat(n)}</span>` : "";
     $("list").innerHTML = rows.map((r) => {
       const t = new Date(r.solvedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      return `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span>${esc(r.name)}</span><span class="when">${esc(t)}</span></li>`;
+      return `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span>${esc(r.name)}</span>${hearts(r.hearts)}<span class="when">${esc(t)}</span></li>`;
     }).join("");
+    // Speedrun board: quickest solves first, ties go to more hearts left.
+    const fast = rows.filter((r) => Number.isInteger(r.seconds))
+      .sort((x, y) => x.seconds - y.seconds || (y.hearts ?? 0) - (x.hearts ?? 0)).slice(0, 5);
+    $("fastBox").hidden = !fast.length;
+    $("fast").innerHTML = fast.map((r, i) =>
+      `<li class="${i === 0 ? "first" : ""}"><span class="rank">${clock(r.seconds)}</span><span>${esc(r.name)}</span>${hearts(r.hearts)}<span class="when stat">#${r.rank} overall</span></li>`).join("");
   } catch {}
 }
 load();
