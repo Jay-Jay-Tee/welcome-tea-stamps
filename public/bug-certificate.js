@@ -45,7 +45,7 @@
     }
     g.restore();
   }
-  async function create({ name, rank, code, event, date, venue }) {
+  async function create({ name, rank, code, date, venue }) {
     if (document.fonts?.ready) await document.fonts.ready;
     const logo = new Image();
     logo.src = "/logo.png";
@@ -84,9 +84,11 @@
     donut(g, 1262, 389);
 
     text(g, "Proudly awarded to", 142, 577, 30, "#5b6677", 500);
-    const nameWidth = text(g, String(name || "Anonymous squasher"), 139, 665, 79, INK, 700, 1040);
-    g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(Math.min(142 + nameWidth + 18, 1040), 689); g.stroke();
-    text(g, `For finding the hidden donut bug and repairing it at ${event}.`, 142, 751, 28, INK, 500, 1170);
+    const displayName = String(name || "Anonymous squasher");
+    const nameWidth = text(g, displayName, 139, 665, 79, INK, 700, 1040);
+    const underlineWidth = Math.min(nameWidth + 18, displayName.length * 50, 900);
+    g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(142 + underlineWidth, 689); g.stroke();
+    text(g, "For finding the hidden donut bug and repairing it at the Computing Club Welcome Tea.", 142, 751, 28, INK, 500, 1170);
     g.strokeStyle = "#c5cfdb"; g.lineWidth = 2; g.beginPath(); g.moveTo(132, 806); g.lineTo(1435, 806); g.stroke();
     text(g, `${date}  |  ${venue}`, 142, 859, 25, "#5b6677", 500, 850);
     text(g, `CARD ${code}`, 1160, 859, 24, BLUE, 700, 276);

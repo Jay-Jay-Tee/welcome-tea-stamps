@@ -55,7 +55,7 @@ export function missionView(seed: number, stage: number, attempts: number, compl
   if (completed || stage >= MISSION_DONE) return { stage: "complete", title: "Bug squashed", progress: 5, total: 5 };
   const scene = sceneFor(seed);
   const hint = attempts >= 2 ? (stage === 0 ? "Find the first line that should never have happened." : stage === 1 ? "Keep the normal path; stop the bad one before it changes anything." : "Think about what the person should see and whether the count changes.") : null;
-  if (stage === 0) return { stage: "diagnose", title: scene.title, intro: scene.intro, logs: scene.logs, options: arranged(scene.logs.map((_, i) => `Line ${i + 1}`), seed, stage), hint, progress: 0, total: 5 };
+  if (stage === 0) return { stage: "diagnose", title: scene.title, intro: scene.intro, logs: scene.logs, options: scene.logs.map((_, i) => `Line ${i + 1}`), hint, progress: 0, total: 5 };
   if (stage === 1) return { stage: "patch", title: scene.title, intro: "Choose the one-line fix, then run the tests.", snippet: scene.snippet, options: arranged(scene.patch, seed, stage), hint, progress: 1, total: 5 };
   const check = scene.checks[stage - 2];
   return { stage: "verify", title: check.title, intro: check.prompt, options: arranged(check.options, seed, stage), hint, progress: stage, total: 5 };
@@ -64,5 +64,5 @@ export function missionView(seed: number, stage: number, attempts: number, compl
 export function isCorrect(seed: number, stage: number, choice: number) {
   const original = stage === 0 ? seed % 3 === 1 ? 2 : 3 : stage === 1 ? 0 : stage >= 2 && stage < MISSION_DONE ? sceneFor(seed).checks[stage - 2].answer : -1;
   const count = stage === 0 ? 4 : 3;
-  return Number.isInteger(choice) && choice >= 0 && choice < count && choice === (original - (seed + stage * 7) % count + count) % count;
+  return Number.isInteger(choice) && choice >= 0 && choice < count && choice === (stage === 0 ? original : (original - (seed + stage * 7) % count + count) % count);
 }

@@ -67,16 +67,15 @@
   .crash .row button { flex: 1 0 auto; }
   .crash .feedback { min-height: 1.5em; }
   .mission-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #ffbd44; font: 700 12px "DM Sans", system-ui, sans-serif; text-transform: uppercase; }
-  .mission-log { padding-left: 26px; margin: 16px 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
-  .mission-log li { padding: 6px 0; border-bottom: 1px solid #4a556d; overflow-wrap: anywhere; }
+  .mission-log { list-style: none; padding: 0; margin: 16px 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  .mission-log li { margin: 8px 0; }
+  .mission-log button { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: 56px; padding: 12px; background: #172238; color: #fff; border-color: #69778f; box-shadow: none; text-align: left; font: inherit; overflow-wrap: anywhere; }
+  .mission-log button:hover, .mission-log button:focus-visible { border-color: #ffbd44; outline-color: #ffbd44; }
+  .mission-log .log-index { flex: none; color: #ffbd44; font-weight: 700; }
   .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
-  .mission-run { display: grid; justify-items: center; gap: 4px; width: 100%; padding: 14px; background: #354666; color: #fff; border-color: #ffbd44; box-shadow: 3px 3px 0 #ffbd44; }
-  .mission-run .repair-donut { margin: 0; }
-  .mission-run > span { pointer-events: none; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
-  .repair-donut.broken { filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
     .crash .row { display: block; }
     .crash .row button { width: 100%; margin-top: 10px; }
@@ -470,35 +469,18 @@ function renderMission(state, feedback = "") {
   missionState = state;
   updateBugClues();
   if (state.stage === "complete") { finishMission(); return; }
-  const needsRun = state.stage === "diagnose" && !feedback;
   const labels = { diagnose: "01 Find the fault", patch: "02 Patch the bug", verify: "03 Prove your fix" };
-  const options = state.options.map((option, i) => `<button type="button" data-choice="${i}">${esc(option)}</button>`).join("");
+  const options = state.options?.map((option, i) => `<button type="button" data-choice="${i}">${esc(option)}</button>`).join("") || "";
   $("missionBox").innerHTML = `<div class="mission-top"><span>${labels[state.stage]}</span><span>${state.progress} / ${state.total} steps</span></div>
     <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
-    ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: a bug slipped into commit-tea. Reproduce the failure, find the first bad event, and earn your chance to patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
+    ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: the glitch has reproduced a bug in commit-tea. Find where things first go wrong, then patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
     <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
-    ${needsRun ? `<button id="runBug" class="mission-run" type="button"><span class="repair-donut broken" aria-hidden="true">🍩</span><span>Run the donut</span></button>` : ""}
-    ${state.logs ? `<ol class="mission-log" ${needsRun ? "hidden" : ""}>${state.logs.map((line) => `<li>${esc(line)}</li>`).join("")}</ol>` : ""}
+    ${state.logs ? `<p><strong>Tap the first log line where the behavior goes wrong:</strong></p><ol class="mission-log">${state.logs.map((line, i) => `<li><button type="button" data-choice="${i}"><span class="log-index">${i + 1}.</span><span>${esc(line)}</span></button></li>`).join("")}</ol>` : ""}
     ${state.snippet ? `<pre class="mission-code">${esc(state.snippet)}</pre>` : ""}
-    <div class="quiz mission-options" ${needsRun ? "hidden" : ""}>${options}</div>
+    ${!state.logs ? `<div class="quiz mission-options">${options}</div>` : ""}
     <p class="feedback dim" role="status" aria-live="polite">${esc([feedback, state.hint].filter(Boolean).join(" "))}</p>`;
   $("missionBox").querySelectorAll("[data-choice]").forEach((button) => button.onclick = () => submitMission(state.progress, Number(button.dataset.choice)));
-  if (needsRun) {
-    $("missionBox").onclick = (event) => {
-      if (!event.target.closest("#runBug")) return;
-      $("runBug").hidden = true;
-      $("missionBox").querySelector(".mission-log").hidden = false;
-      $("missionBox").querySelector(".mission-options").hidden = false;
-      $("missionBox").querySelector(".feedback").textContent = "Failure reproduced. Find the first bad line in the log.";
-      $("missionBox").querySelector(".mission-log").scrollIntoView({ block: "center", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      $("missionBox").querySelector("[data-choice]")?.focus({ preventScroll: true });
-      try { navigator.vibrate && navigator.vibrate([50, 30, 90]); } catch {}
-    };
-    $("runBug").focus();
-  } else {
-    $("missionBox").onclick = null;
-    $("missionBox").querySelector("[data-choice]")?.focus();
-  }
+  $("missionBox").querySelector("[data-choice]")?.focus();
 }
 
 async function submitMission(stage, choice) {
@@ -552,7 +534,7 @@ async function previewCertificate(r) {
   button.textContent = "Drawing certificate…";
   let blob;
   try {
-    blob = await BugCertificate.create({ name: r.name, rank: r.rank, code: cardCode, event: cfg.name, date: cfg.date, venue: cfg.venue });
+    blob = await BugCertificate.create({ name: r.name, rank: r.rank, code: cardCode, date: cfg.date, venue: cfg.venue });
   } catch (e) {
     if (code === cardCode && !$("crash").hidden && box.isConnected) {
       button.disabled = false;
@@ -583,9 +565,8 @@ function closeCrash() {
   else if (!$("card").hidden) $("qrOpen").focus();
   crashReturnFocus = null;
 }
-$("crash").onclick = (e) => { if (e.target === $("crash") || e.target.closest(".crash-close")) closeCrash(); };
+$("crash").onclick = (e) => { if (e.target.closest(".crash-close")) closeCrash(); };
 $("crash").onkeydown = (e) => {
-  if (e.key === "Escape") { e.preventDefault(); closeCrash(); }
   if (e.key !== "Tab") return;
   const items = [...$("crash").querySelectorAll("button, input")];
   const index = items.indexOf(document.activeElement);
