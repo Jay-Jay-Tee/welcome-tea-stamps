@@ -42,7 +42,7 @@ Tell the Tech Lead. They'll make a new key, and your old login will stop working
 ## Tech Cell stall only: the bug hunt
 Once a card has the Tech Cell stamp, a hidden bug unlocks on the attendee's card page. Don't give it away. Point at the sign and say "there's a bug in the site, find it".
 - Clue on their card: a grey line under the stamps, `// TODO: stop people tapping the donut so much`.
-- Tapping the donut 5 times fast makes the site "corrupt", then opens a repair lab. The real card and donut stock do not change.
+- Tapping the donut 5 times fast makes the site "corrupt", then drops them on a fake, unfinished "staff only" page. It looks broken on purpose and holds no real data. "Open the repair lab" there starts the mission. The real card and donut stock do not change.
 - The glitch shows what went wrong; they tap the first bad log line, choose a one-line fix, and work through 3 short scenarios. The scenario varies by card. Wrong answers can be retried; a hint appears after 2 misses on one step. Only Close exits the repair lab.
 - Progress is saved on the server, so they can reload and continue. The repair lab needs wifi, but the stamp card still works from its cache.
 - They get 3 hearts. A wrong answer costs one. Losing all 3 reboots the lab with a different bug, and their clock keeps running. There are 9 different bugs, so friends can't just share answers. A clock shows how long they've taken.
