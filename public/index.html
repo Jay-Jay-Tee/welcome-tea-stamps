@@ -80,6 +80,11 @@
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
   .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+  /* Mission progress donut: grey and bare at the start, one icing section and more colour per solved step */
+  .repair-meter { text-align: center; margin: 4px 0 10px; }
+  .repair-meter svg { width: 116px; height: 116px; filter: grayscale(var(--grey)) brightness(calc(1 - var(--grey) * .25)); transition: filter .7s ease; }
+  .repair-meter.done svg { animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+  .repair-meter .donut-count { fill: #1f2a44; }
   .repair-donut.broken { margin: 0 auto 8px; font-size: 3.25rem; filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
     .crash .row { display: block; }
@@ -475,6 +480,15 @@ const heartsHtml = (state) => state.maxHearts
   : "";
 const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 
+// Draws the mission donut. Only the newest icing section animates; the grey fades as steps are solved.
+let lastRepairProgress = 0;
+function repairMeter(progress, total, done = false) {
+  const colors = cfg.stalls.map((s) => s.color || "#365486");
+  const fresh = progress > lastRepairProgress ? lastRepairProgress : progress;
+  lastRepairProgress = progress;
+  return `<div class="repair-meter ${done ? "done" : ""}" style="--grey:${(1 - progress / total).toFixed(2)}" aria-hidden="true">${Look.donut(progress, total, colors, 116, fresh)}</div>`;
+}
+
 function renderMission(state, feedback = "") {
   missionState = state;
   updateBugClues();
@@ -493,7 +507,7 @@ function renderMission(state, feedback = "") {
     <div class="quiz-progress" role="progressbar" aria-valuenow="${state.progress}" aria-valuemin="0" aria-valuemax="${state.total}" aria-label="Mission progress"><span style="width:${state.progress / state.total * 100}%"></span></div>
     ${state.stage === "diagnose" ? `<p class="mission-story">Tech Cell dispatch: the glitch has reproduced a bug in commit-tea. Find where things first go wrong, then patch it.</p>` : state.stage === "verify" ? `<p class="mission-story">Tech Cell review: prove your patch works in three real-world cases.</p>` : ""}
     <b>${esc(state.title)}</b><p>${esc(state.intro)}</p>
-    ${state.logs ? `<div class="repair-donut broken" aria-hidden="true">🍩</div>` : ""}
+    ${repairMeter(state.progress, state.total)}
     ${state.logs ? `<p><strong>Tap the first log line where the behavior goes wrong:</strong></p><ol class="mission-log">${state.logs.map((line, i) => `<li><button type="button" data-choice="${i}"><span class="log-index">${i + 1}.</span><span>${esc(line)}</span></button></li>`).join("")}</ol>` : ""}
     ${state.snippet ? `<pre class="mission-code">${esc(state.snippet)}</pre>` : ""}
     ${!state.logs ? `<div class="quiz mission-options">${options}</div>` : ""}
@@ -514,7 +528,7 @@ async function submitMission(stage, choice) {
 }
 
 function finishMission() {
-  $("missionBox").innerHTML = `<div class="repair-donut" aria-hidden="true">🍩</div><b>Mission complete. Bug squashed.</b><p>You found the fault, patched it, and proved the fix. Welcome to the Bug Squashers. Choose a Hall of Fame name.</p>
+  $("missionBox").innerHTML = `${repairMeter(5, 5, true)}<b>Mission complete. Bug squashed.</b><p>You found the fault, patched it, and proved the fix. Welcome to the Bug Squashers. Choose a Hall of Fame name.</p>
     <div class="row"><input id="hallName" type="text" maxlength="24" autocomplete="name" placeholder="Your name" aria-label="Name for certificate and Hall of Fame"><button id="hallGo" type="button">Save</button></div>
     <span class="dim">We recommend using your name: it appears on your certificate and the Hall of Fame. Leave it blank only if you prefer “Anonymous squasher”.</span><div id="hallMsg" class="feedback dim" role="status" aria-live="polite"></div>`;
   $("hallName").value = (view && view.nickname) || "";
