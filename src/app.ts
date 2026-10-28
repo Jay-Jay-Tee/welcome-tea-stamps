@@ -190,6 +190,17 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     }),
   );
 
+  // Second Hall of Fame board: first to collect their donut. Nickname only (or "Anonymous"), in collection order.
+  app.get(
+    "/api/hall/donuts",
+    wrap(async (_req, res) => {
+      const rows = (await pool.query("select nickname, donut_claimed_at from attendees where donut_claimed_at is not null order by donut_claimed_at, id")).rows as {
+        nickname: string | null; donut_claimed_at: Date;
+      }[];
+      res.json(rows.slice(0, 100).map((r, i) => ({ rank: i + 1, name: r.nickname || "Anonymous", collectedAt: r.donut_claimed_at })));
+    }),
+  );
+
   app.get(
     "/api/cards/:code",
     wrap(async (req, res) => res.json(await cardView(await findAttendee(req.params.code)))),
