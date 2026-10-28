@@ -66,7 +66,8 @@
   .crash .row input { min-width: min(100%, 180px); }
   .crash .row button { flex: 1 0 auto; }
   .crash .feedback { min-height: 1.5em; }
-  .mission-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: #ffbd44; font: 700 12px "DM Sans", system-ui, sans-serif; text-transform: uppercase; }
+  .mission-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; margin-bottom: 8px; color: #ffbd44; font: 700 12px "DM Sans", system-ui, sans-serif; text-transform: uppercase; }
+  .mission-top > span:last-child { white-space: nowrap; }
   .mission-log { list-style: none; padding: 0; margin: 16px 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
   .mission-log li { margin: 8px 0; }
   .mission-log button { display: flex; align-items: baseline; gap: 12px; width: 100%; min-height: 56px; padding: 12px; background: #fff; color: #1f2a44; border-color: #1f2a44; box-shadow: 3px 3px 0 #ffbd44; text-align: left; font: 600 14px/1.35 ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
@@ -79,13 +80,10 @@
   .mission-code { padding: 12px; background: #172238; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .mission-options button { font: 600 14px/1.35 ui-monospace, Menlo, monospace; }
   .mission-story { margin: 12px 0 18px; padding: 12px; border-left: 3px solid #ffbd44; background: #354666; }
-  .repair-donut { margin: 8px auto 14px; text-align: center; font-size: 4rem; line-height: 1; animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
-  /* Mission progress donut: grey and bare at the start, one icing section and more colour per solved step */
+  /* A warm, fully iced donut gains sprinkles as the repair progresses. */
   .repair-meter { text-align: center; margin: 4px 0 10px; }
-  .repair-meter svg { width: 116px; height: 116px; filter: grayscale(var(--grey)) brightness(calc(1 - var(--grey) * .25)); transition: filter .7s ease; }
+  .repair-meter svg { width: 116px; height: 116px; overflow: visible; }
   .repair-meter.done svg { animation: pop .6s cubic-bezier(.3, 1.6, .5, 1); }
-  .repair-meter .donut-count { fill: #1f2a44; }
-  .repair-donut.broken { margin: 0 auto 8px; font-size: 3.25rem; filter: grayscale(1); transform: rotate(-18deg); }
   @media (max-width: 400px) {
     .crash .row { display: block; }
     .crash .row button { width: 100%; margin-top: 10px; }
@@ -177,7 +175,7 @@
   <div id="crash" class="crash" role="dialog" aria-modal="true" aria-label="Donut debugger" hidden></div>
 </main>
 <script src="/icons.js"></script>
-<script src="/bug-certificate.js"></script>
+<script src="/bug-certificate.js?v=12"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }, del: (k) => { try { localStorage.removeItem(k); } catch {} } };
@@ -480,13 +478,26 @@ const heartsHtml = (state) => state.maxHearts
   : "";
 const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
 
-// Draws the mission donut. Only the newest icing section animates; the grey fades as steps are solved.
-let lastRepairProgress = 0;
+// Keep the donut colourful from the start; each completed step adds sprinkles.
 function repairMeter(progress, total, done = false) {
-  const colors = cfg.stalls.map((s) => s.color || "#365486");
-  const fresh = progress > lastRepairProgress ? lastRepairProgress : progress;
-  lastRepairProgress = progress;
-  return `<div class="repair-meter ${done ? "done" : ""}" style="--grey:${(1 - progress / total).toFixed(2)}" aria-hidden="true">${Look.donut(progress, total, colors, 116, fresh)}</div>`;
+  const filled = Math.max(0, Math.min(total, progress));
+  const colors = ["#fff", "#ffbd44", "#365486", "#3fae5a", "#5aa9e6"];
+  const sprinkles = Array.from({ length: filled }, (_, i) => [0.18, 0.48, 0.78].map((part, k) => {
+    const angle = -Math.PI / 2 + Math.PI * 2 * (i + part) / total;
+    const radius = [47, 54, 47][k], x = 80 + Math.cos(angle) * radius, y = 78 + Math.sin(angle) * radius;
+    return `<rect x="${(x - 6).toFixed(1)}" y="${(y - 2).toFixed(1)}" width="12" height="4" rx="2" fill="${colors[(i + k) % colors.length]}" transform="rotate(${(angle * 180 / Math.PI + 35).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+  }).join("")).join("");
+  const arc = (433.5 * filled / total).toFixed(1);
+  return `<div class="repair-meter ${done ? "done" : ""}" aria-hidden="true"><svg viewBox="0 0 160 160" width="116" height="116">
+    <circle cx="80" cy="84" r="65" fill="#a65c38"/>
+    <circle cx="80" cy="78" r="65" fill="#d89255"/>
+    <circle cx="80" cy="78" r="50" fill="none" stroke="#f59bb8" stroke-width="29"/>
+    <path d="M39 55 A51 51 0 0 1 71 29" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".65"/>
+    ${sprinkles}
+    <circle cx="80" cy="78" r="29" fill="#283653" stroke="#a65c38" stroke-width="3"/>
+    <text x="80" y="85" text-anchor="middle" fill="#fff" font-family="DM Sans, sans-serif" font-size="21" font-weight="700">${filled}/${total}</text>
+    <circle cx="80" cy="78" r="69" fill="none" stroke="#ffbd44" stroke-width="4" stroke-linecap="round" stroke-dasharray="${arc} 433.5" transform="rotate(-90 80 78)"/>
+  </svg></div>`;
 }
 
 function renderMission(state, feedback = "") {
@@ -495,7 +506,7 @@ function renderMission(state, feedback = "") {
   if (state.stage === "complete") { finishMission(); return; }
   // Out of hearts: the server has already swapped in a different bug. Show a short reboot screen first.
   if (feedback === "reboot") {
-    $("missionBox").innerHTML = `<div class="reboot"><b>Segmentation fault</b><p>Out of hearts. The lab rebooted with a different bug. Your clock is still running.</p><button id="rebootGo" type="button">Start the new bug</button></div>`;
+    $("missionBox").innerHTML = `<div class="reboot"><b>Lab rebooted</b><p>That bug got away. You have 3 new hearts and a different case to solve. Your clock is still running.</p><button id="rebootGo" type="button">Start the new bug</button></div>`;
     try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch {}
     $("rebootGo").onclick = () => renderMission(state);
     $("rebootGo").focus();

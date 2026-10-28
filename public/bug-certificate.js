@@ -47,8 +47,8 @@
     g.restore();
   }
   // A flattened ladybug under a stomping foot, on a gold splat. Centre at (x, y), about 330px wide.
-  function stomp(g, x, y) {
-    g.save(); g.translate(x, y);
+  function stomp(g, x, y, scale = 1) {
+    g.save(); g.translate(x, y); g.scale(scale, scale);
     // splat
     g.fillStyle = "#ffe08a";
     g.beginPath();
@@ -128,7 +128,8 @@
     text(g, "PATCH APPLIED. TESTS PASSED.", 141, 466, 31, INK, 700);
     donut(g, 1300, 352, 0.78);
 
-    stomp(g, 1262, 590);
+    // Keep the playful squash scene as a small seal in the right column.
+    stomp(g, 1262, 590, 0.62);
 
     text(g, "Proudly awarded to", 142, 577, 30, "#5b6677", 500);
     const displayName = String(name || "Anonymous squasher");

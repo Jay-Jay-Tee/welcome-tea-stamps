@@ -132,6 +132,7 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
     const right = before.options.findIndex((_: unknown, i: number) => isCorrect(seed, stage, i));
     const passed = (await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: right })).body;
     assert.equal(passed.progress, stage + 1);
+    assert.equal(passed.hearts, HEARTS - 2, "correct answers keep earlier heart losses visible");
     assert.equal((await call("POST", `/api/cards/${fresh}/bug-hunt/actions`, { stage, choice: right })).body.progress, stage + 1, "duplicate action is safe");
   }
   assert.equal((await call("GET", `/api/cards/${fresh}/bug-hunt`)).body.stage, "complete");

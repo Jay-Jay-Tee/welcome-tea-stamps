@@ -1,6 +1,6 @@
 // Keeps the card and stall pages openable when the venue wifi dies. Network first, cache as fallback.
 // API calls other than /api/config are never cached: stamps must come from the server.
-const CACHE = "stamps-v11";
+const CACHE = "stamps-v12";
 const SHELL = ["/", "/index.html", "/stall.html", "/style.css", "/icons.js", "/bug-certificate.js", "/logo.png", "/favicon.svg", "/vendor/jsqr.js", "/api/config"];
 
 self.addEventListener("install", (e) => {

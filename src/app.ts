@@ -139,7 +139,7 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     if (stage !== mission.stage) return res.json({ ...missionView(mission.seed, mission.stage, mission.attempts, false, mission.mistakes), feedback: "Already moved on. Here's your current step." });
     const correct = isCorrect(mission.seed, stage, choice);
     const updated = (await pool.query(correct
-      ? "update bug_missions set stage=stage+1, attempts=0 where attendee_id=$1 and stage=$2 returning seed, stage, attempts"
+      ? "update bug_missions set stage=stage+1, attempts=0 where attendee_id=$1 and stage=$2 returning seed, stage, attempts, mistakes"
       : "update bug_missions set attempts=attempts+1, mistakes=mistakes+1 where attendee_id=$1 and stage=$2 returning seed, stage, attempts, mistakes", [a.id, stage])).rows[0] as { seed: number; stage: number; attempts: number; mistakes: number } | undefined;
     // Out of hearts: reboot the lab with a different bug. The clock keeps running.
     if (updated && !correct && updated.mistakes >= HEARTS) {
