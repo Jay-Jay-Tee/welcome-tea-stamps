@@ -35,35 +35,30 @@
         prompt: "What number does this log? Follow the map, filter, then reduce.",
         snippet: `const xs = [${a}, ${b}, ${c}];\nconst ys = xs.map((n, i) => n + i)\n  .filter(n => n % 2 === 0);\nconsole.log(ys.reduce((sum, n) => sum + n, 0));`,
         answer: String(jsAnswer),
-        why: `The mapped values are ${[a, b + 1, c + 2].join(", ")}; only even values remain, summing to ${jsAnswer}.`,
       },
       {
         topic: "Python · mutation",
         prompt: "What number is printed? The two names point at the same list.",
         snippet: `items = [${p}, ${q}, ${r}]\nalias = items\nalias.pop(1)\nitems.append(${s})\nprint(alias[-2] + len(items))`,
         answer: String(r + 3),
-        why: `Both names share one list. After the pop and append it is [${p}, ${r}, ${s}], so ${r} + 3 = ${r + 3}.`,
       },
       {
         topic: "Git · recovery",
         prompt: "You committed too early. Keep the file changes staged, but remove the last local commit. Which command?",
         options: ["git reset --soft HEAD~1", "git reset --hard HEAD~1", "git revert HEAD"],
         answer: "git reset --soft HEAD~1",
-        why: "--soft moves HEAD back while leaving the index and worktree as they were.",
       },
       {
         topic: "HTTP · retries",
         prompt: "A phone retries a stamp request after a timeout. Which server rule prevents a second stamp for that stall?",
         options: ["A unique key on card and stall", "A longer client timeout", "A new QR code for each retry"],
         answer: "A unique key on card and stall",
-        why: "The database must reject the same card and stall pair twice, even if requests race.",
       },
       {
         topic: "SQL · duplicates",
         prompt: "What does this query return for these stamp rows?",
         snippet: `attendee_id: ${rows.join(", ")}\nSELECT COUNT(DISTINCT attendee_id) FROM stamps;`,
         answer: String(distinct),
-        why: `The distinct attendee IDs are ${[...new Set(rows)].join(", ")}, so the count is ${distinct}.`,
       },
       {
         topic: "CSS · cascade",
@@ -71,20 +66,17 @@
         snippet: `.donut { color: ${colors[0]}; }\n#card .donut { color: ${colors[1]}; }\n.card .donut { color: ${colors[2]}; }`,
         options: colors,
         answer: colors[1],
-        why: "The selector with #card has an ID, so it beats the class-only selectors.",
       },
       {
         topic: "Stamp card · logic",
         prompt: `A card needs ${stamps.length} different stalls. Its raw stamps are ${JSON.stringify(stamps)}. What count should the completion check use?`,
         answer: String(new Set(stamps).size),
-        why: `Repeated stamps don't count twice. There are ${new Set(stamps).size} distinct stalls.`,
       },
       {
         topic: "Web security · output",
         prompt: "A nickname is inserted into HTML. Which operation prevents <script> from becoming an element?",
         options: ["Escape HTML special characters", "Convert the name to uppercase", "Trim whitespace"],
         answer: "Escape HTML special characters",
-        why: "Escaping < and > makes the input text rather than executable markup.",
       },
     ];
     return shuffle(tests, random).slice(0, 7).map((test) => ({

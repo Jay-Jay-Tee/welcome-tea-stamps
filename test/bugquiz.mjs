@@ -13,7 +13,7 @@ for (const code of ["A1B2C3D4", "K8M9N2P3", "ZZZZZZZZ", "00000000"]) {
   assert(tests.some((t) => !t.options), "each card includes typed answers");
   assert(tests.some((t) => t.options), "each card includes choice answers");
   for (const test of tests) {
-    assert(test.answer && test.why && test.prompt);
+    assert(test.answer && test.prompt);
     if (test.options) assert(test.options.includes(test.answer), "correct answer must be offered");
   }
 }

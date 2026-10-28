@@ -72,8 +72,6 @@
   .debug-steps span { padding: 8px 5px; border: 1px solid #66758e; border-radius: 6px; color: #b7c2d4; text-align: center; }
   .debug-steps .done { border-color: #79d9a1; color: #79d9a1; }
   .debug-steps .active { border-color: #ffbd44; background: #453b2b; color: #ffbd44; }
-  .test-result { margin: 14px 0; padding: 12px; border-left: 3px solid #79d9a1; background: #203b3a; }
-  .test-result strong { color: #a8efc3; }
   @media (max-width: 400px) {
     .crash .row { display: block; }
     .crash .row button { width: 100%; margin-top: 10px; }
@@ -520,7 +518,7 @@ function runQuiz(word) {
   let step = 0, hearts = maxHearts;
   const box = $("crash").querySelector(".found");
   const heartRow = () => `<span class="hearts" aria-label="${hearts} of ${maxHearts} hearts left">${"♥".repeat(hearts)}<span class="lost">${"♥".repeat(maxHearts - hearts)}</span></span>`;
-  const progress = (passed = step) => `<div class="quiz-progress" role="progressbar" aria-valuenow="${passed}" aria-valuemin="0" aria-valuemax="${tests.length}" aria-label="Tests passed"><span style="width:${passed / tests.length * 100}%"></span></div>`;
+  const progress = () => `<div class="quiz-progress" role="progressbar" aria-valuenow="${step}" aria-valuemin="0" aria-valuemax="${tests.length}" aria-label="Tests passed"><span style="width:${step / tests.length * 100}%"></span></div>`;
   const loseHeart = () => {
     hearts--;
     if (hearts > 0) return ask(`Wrong. ${hearts} heart${hearts === 1 ? "" : "s"} left.`);
@@ -532,9 +530,8 @@ function runQuiz(word) {
     const test = tests[step];
     if (!String(guess).trim()) { box.querySelector(".feedback").textContent = "Enter an answer to run this test."; return; }
     if (String(guess).trim().toLowerCase() !== test.answer.toLowerCase()) return loseHeart();
-    box.innerHTML = `<b>Test ${step + 1} passed ${heartRow()}</b>${progress(step + 1)}<div class="test-result"><strong>Why it passes</strong><br>${esc(test.why)}</div><button id="nextTest" type="button">${step + 1 === tests.length ? "Finish verification" : "Next test"}</button>`;
-    $("nextTest").onclick = () => { step++; ask(""); };
-    $("nextTest").focus();
+    step++;
+    ask("");
   };
   const ask = (msg) => {
     if (step >= tests.length) return finishBug(word);
