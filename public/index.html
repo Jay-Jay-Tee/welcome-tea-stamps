@@ -87,6 +87,8 @@
   .staff td, .staff th { border: 1px solid #000; padding: 2px 4px; font: 14px "Times New Roman", serif; white-space: nowrap; }
   .staff .spill { width: 160px; height: 34px; border: 1px solid #000; overflow: visible; margin: 10px 0 46px; font-size: 15px; }
   .staff .console { background: #000; color: #0f0; font: 12px/1.4 monospace; padding: 8px; white-space: pre; overflow: visible; margin: 10px 0; }
+  .staff button.staff-act { color: #000; cursor: pointer; }
+  .staff .broke { background: #f00; color: #fff; font: bold 15px/1.3 monospace; padding: 6px; margin: 8px 0; }
   .staff button { font: 13px Arial, sans-serif; color: GrayText; background: ButtonFace; border: 1px solid #999; border-radius: 0; box-shadow: none; min-height: 0; padding: 2px 6px; margin: 2px 4px 2px 0; }
   .staff .exit { margin-top: 18px; font-size: 18px; }
   .mission-clock { color: #e8ecf3; font-variant-numeric: tabular-nums; margin-right: 6px; }
@@ -180,7 +182,7 @@
 
   <div id="stamped" class="stamped" hidden></div>
 
-  <div id="staff" class="staff" role="dialog" aria-modal="true" aria-label="Staff only page" hidden>
+  <div id="staff" class="staff" tabindex="-1" role="dialog" aria-modal="true" aria-label="Staff only page" hidden>
     <div class="dbg">!! DEBUG MODE ON - DO NOT DEPLOY !! build 0.0.1-alpha-final-FINAL-v2</div>
     <h1>commit-tea admin panel</h1>
     <p>Welcome back, {{ admin.name }}! You have {{ unread_count }} new notifications.</p>
@@ -195,15 +197,15 @@
       <tr><td>4</td><td>asdf</td><td>9999</td><td>false</td><td>DO NOT SHIP</td></tr>
     </table>
     <div class="spill">This text was meant to fit inside this little box, but nobody tested the page on a phone, so now it spills out over everything underneath it and nobody noticed.</div>
-    <p><button type="button" disabled title="not implemented">Delete all donuts</button><button type="button" disabled title="not implemented">Export users</button><button type="button" disabled title="TODO">Give everyone 5 stamps</button></p>
-    <div class="console">&gt; donut.eat()
+    <p><button type="button" class="staff-act" data-act="delete">Delete all donuts</button><button type="button" class="staff-act" data-act="export">Export users</button><button type="button" class="staff-act" data-act="give">Give everyone 5 stamps</button></p>
+    <div class="console" id="staffConsole">&gt; donut.eat()
 Uncaught TypeError: donut.eat is not a function
     at render (admin.js:404)
     at tea (commit-tea.js:28)
 Warning: donut stock is -3
 Warning: {{ unread_count }} is not defined</div>
-    <p>Something on this page is broken. Tech Cell needs someone to fix it.</p>
-    <p class="exit"><a href="#" id="staffDebug">Open the repair lab &rarr;</a></p>
+    <p>Admin access: granted?? Please don't press anything.</p>
+    <p class="exit"><a href="#" id="staffDebug">skip to the repair lab</a></p>
     <p><a href="#" id="staffLeave">&larr; get me out of here</a></p>
   </div>
 
@@ -473,11 +475,15 @@ function donutTap() {
 
 // The "place you're not supposed to be": a fake, unfinished staff page. Cosmetic only, no real data.
 // The address bar shows /staff-only while it's open; Back or the exit link returns to the card.
+const STAFF_CONSOLE = "> donut.eat()\nUncaught TypeError: donut.eat is not a function\n    at render (admin.js:404)\n    at tea (commit-tea.js:28)\nWarning: donut stock is -3\nWarning: {{ unread_count }} is not defined";
 function openStaff() {
+  $("staffConsole").textContent = STAFF_CONSOLE;
+  document.querySelectorAll("#staff .broke").forEach((el) => el.remove());
+  document.querySelectorAll("#staff .staff-act").forEach((b) => b.disabled = false);
   $("staff").hidden = false;
   $("staff").scrollTop = 0;
   try { history.pushState({ staff: 1 }, "", "/staff-only"); } catch {}
-  $("staffDebug").focus();
+  $("staff").focus();
 }
 function closeStaff(fromHistory) {
   if ($("staff").hidden) return;
@@ -485,6 +491,29 @@ function closeStaff(fromHistory) {
   if (!fromHistory && history.state && history.state.staff) { try { history.back(); } catch {} }
 }
 $("staffDebug").onclick = (e) => { e.preventDefault(); closeStaff(); if (hasTech()) openMission(); };
+
+// Pressing an admin button you shouldn't have access to "breaks" the panel: console errors, page glitch,
+// then the repair lab opens to fix it. Nothing real happens to cards, stamps or donuts.
+const STAFF_FALLOUT = {
+  delete: ["> deleteAllDonuts()", "Deleting donuts... 1, 2, 3, 4, 5, ...", "FATAL: donut stock is now -117", "Segmentation fault (core dumped)"],
+  export: ["> exportUsers()", "Exporting {{ users }} ...", "TypeError: cannot read properties of undefined (reading 'name')", "Segmentation fault (core dumped)"],
+  give: ["> giveEveryone(5)", "Adding stamps... stamps = stamps + '5'", "Warning: Aisha now has 25 stamps", "FATAL: integer overflow in stamp counter"],
+};
+document.querySelectorAll("#staff .staff-act").forEach((btn) => btn.onclick = () => {
+  if (!hasTech() || glitchTimer) return;
+  document.querySelectorAll("#staff .staff-act").forEach((b) => b.disabled = true);
+  const out = $("staffConsole");
+  const lines = STAFF_FALLOUT[btn.dataset.act] || STAFF_FALLOUT.delete;
+  lines.forEach((line, i) => setTimeout(() => { out.textContent += "\n" + line; }, 220 * (i + 1)));
+  setTimeout(() => {
+    out.insertAdjacentHTML("afterend", `<div class="broke">You broke the admin panel. Fix it before anyone notices.</div>`);
+    out.scrollIntoView({ block: "center" });
+  }, 220 * (lines.length + 1));
+  setTimeout(() => {
+    const cardCode = code;
+    corrupt(() => { closeStaff(); if (code === cardCode && hasTech()) openMission(); });
+  }, 220 * (lines.length + 1) + 1100);
+});
 $("staffLeave").onclick = (e) => { e.preventDefault(); closeStaff(); };
 window.addEventListener("popstate", () => closeStaff(true));
 
