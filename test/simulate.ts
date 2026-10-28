@@ -250,12 +250,25 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.equal((await call("POST", `/api/cards/${c}/rename`, { name: "cheebye" })).status, 400, "rename uses the name filter");
 }
 
+// Moderation: sound-alike rude names are refused, real "Phuc" is fine, and admin can list and hide hall names.
+{
+  assert.equal((await call("POST", "/api/cards", { nickname: "phucyou" })).status, 400, "sound-alike refused");
+  assert.equal((await call("POST", "/api/cards", { nickname: "Nguyen Phuc" })).status, 201, "real name allowed");
+  assert.equal((await call("GET", "/api/admin/hall-names")).status, 401, "admin only");
+  const names = (await call("GET", "/api/admin/hall-names", undefined, admin)).body;
+  const named = names.find((n: any) => n.board === "donut");
+  assert.ok(named && named.code && named.name, "lists donut-board names with their card code");
+  await call("POST", "/api/admin/hide-name", { code: named.code }, admin);
+  const after = (await call("GET", "/api/admin/hall-names", undefined, admin)).body;
+  assert.ok(!after.some((n: any) => n.code === named.code && n.board === "donut"), "hidden name drops off the list");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 8);
+assert.equal(end.attendees, N + 9);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 9);
+assert.equal(csv.trim().split("\n").length, N + 10);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

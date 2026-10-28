@@ -418,6 +418,20 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     bugSquashed: (await pool.query("select 1 from squashers where attendee_id=$1", [a.id])).rows.length > 0,
   });
 
+  // Every name currently on either Hall of Fame board, with the card code, for moderation.
+  app.get(
+    "/api/admin/hall-names",
+    adminAuth,
+    wrap(async (_req, res) => {
+      const donuts = (await pool.query("select code, nickname from attendees where donut_claimed_at is not null and nickname is not null order by donut_claimed_at")).rows as { code: string; nickname: string }[];
+      const bugs = (await pool.query("select a.code, s.name from squashers s join attendees a on a.id = s.attendee_id where s.name <> 'Anonymous squasher' order by s.solved_at")).rows as { code: string; name: string }[];
+      res.json([
+        ...donuts.map((r) => ({ code: r.code, name: r.nickname, board: "donut" })),
+        ...bugs.map((r) => ({ code: r.code, name: r.name, board: "bug" })),
+      ]);
+    }),
+  );
+
   // Backstop for names the filter missed: blank the nickname (donut board shows Anonymous) and the squasher name.
   app.post(
     "/api/admin/hide-name",

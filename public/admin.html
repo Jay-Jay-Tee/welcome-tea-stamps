@@ -41,6 +41,10 @@
     <div class="row"><select id="fixStall"></select></div>
     <div class="row"><button id="addStamp">Add stamp</button><button id="rmStamp" class="ghost">Remove stamp</button></div>
     <div class="row"><button id="hideName" class="danger">Hide their name (show as Anonymous)</button></div>
+    <hr>
+    <h2>Hall of Fame names</h2>
+    <p class="muted">Every name showing on the Hall of Fame. Hide turns that card's name into Anonymous on both boards straight away.</p>
+    <table id="hallNames"></table>
     <p id="fixOut" class="muted"></p>
 
     <hr>
@@ -71,6 +75,7 @@ async function load() {
     return;
   }
   $("login").hidden = true; $("dash").hidden = false;
+  loadHallNames();
   $("stats").innerHTML = [["Cards", stats.attendees], ["Stamps", stats.stamps], ["Full cards", stats.completed], ["Donuts given", stats.donutsGiven]]
     .map(([k, v]) => `<span class="stat"><b>${v}</b>${k}</span>`).join("");
   $("donutBanner").className = "banner " + (stats.donutsOut ? "bad" : "ok");
@@ -126,6 +131,23 @@ const fix = (on) => async () => {
     load();
   } catch (e) { $("fixOut").textContent = e.message; }
 };
+async function loadHallNames() {
+  try {
+    const rows = await (await call("GET", "/api/admin/hall-names")).json();
+    $("hallNames").innerHTML = rows.length
+      ? "<tr><th>Name</th><th>Board</th><th>Card</th><th></th></tr>" + rows.map((r) =>
+          `<tr><td>${esc(r.name)}</td><td>${r.board === "bug" ? "First to the bug" : "First to the donut"}</td><td>${esc(r.code)}</td><td><button class="danger" data-hide="${esc(r.code)}">Hide</button></td></tr>`).join("")
+      : "<tr><td>No names on the Hall of Fame yet.</td></tr>";
+  } catch {}
+}
+$("hallNames").onclick = async (e) => {
+  const c = e.target.dataset && e.target.dataset.hide;
+  if (!c) return;
+  e.target.disabled = true;
+  try { await call("POST", "/api/admin/hide-name", { code: c }); } catch (err) { alert(err.message); }
+  loadHallNames();
+};
+
 $("addStamp").onclick = fix(true);
 // For a rude name the filter missed: blanks it on both Hall of Fame boards straight away.
 $("hideName").onclick = async () => {
