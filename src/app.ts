@@ -118,28 +118,31 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
     }),
   );
 
-  const missionFor = async (a: Attendee) => {
+  const missionFor = async (a: Attendee, start = false) => {
     if (!(await stampsOf(a.id)).some((s) => s.stall_id === BUG_STALL)) throw new HttpError(403, "Visit the Tech Cell stall first");
-    await pool.query("insert into bug_missions (attendee_id, seed) values ($1,$2) on conflict (attendee_id) do nothing", [a.id, crypto.randomInt(0, 2147483647)]);
-    await pool.query("update bug_missions set started_at=now() where attendee_id=$1 and started_at is null", [a.id]);
-    const mission = (await pool.query("select seed, stage, attempts, mistakes from bug_missions where attendee_id=$1", [a.id])).rows[0] as { seed: number; stage: number; attempts: number; mistakes: number };
+    await pool.query("insert into bug_missions (attendee_id, seed, started_at) values ($1,$2,null) on conflict (attendee_id) do nothing", [a.id, crypto.randomInt(0, 2147483647)]);
+    if (start) await pool.query("update bug_missions set started_at=now() where attendee_id=$1 and started_at is null", [a.id]);
+    const mission = (await pool.query("select seed, stage, attempts, mistakes, started_at from bug_missions where attendee_id=$1", [a.id])).rows[0] as { seed: number; stage: number; attempts: number; mistakes: number; started_at: Date | null };
     const ranked = (await pool.query("select attendee_id from squashers where attendee_id=$1", [a.id])).rows.length > 0;
-    return { mission, ranked };
+    // Seconds on the mission clock so far, for the live timer on the card (the page counts up from here).
+    const elapsed = mission.started_at ? Math.max(0, Math.round((Date.now() - new Date(mission.started_at).getTime()) / 1000)) : 0;
+    return { mission, ranked, elapsed };
   };
 
   app.get("/api/cards/:code/bug-hunt", wrap(async (req, res) => {
     const a = await findAttendee(req.params.code);
-    const { mission, ranked } = await missionFor(a);
-    res.json(missionView(mission.seed, mission.stage, mission.attempts, ranked, mission.mistakes));
+    const { mission, ranked, elapsed } = await missionFor(a, req.query.start === "1");
+    res.json({ ...missionView(mission.seed, mission.stage, mission.attempts, ranked, mission.mistakes), elapsed });
   }));
 
   app.post("/api/cards/:code/bug-hunt/actions", wrap(async (req, res) => {
     const a = await findAttendee(req.params.code);
-    const { mission, ranked } = await missionFor(a);
-    if (ranked || mission.stage >= MISSION_DONE) return res.json(missionView(mission.seed, MISSION_DONE, 0, true, mission.mistakes));
+    const { mission, ranked, elapsed } = await missionFor(a, true);
+    const send = (body: object) => res.json({ ...body, elapsed });
+    if (ranked || mission.stage >= MISSION_DONE) return send(missionView(mission.seed, MISSION_DONE, 0, true, mission.mistakes));
     const stage = req.body?.stage, choice = req.body?.choice;
     if (!Number.isInteger(stage) || !Number.isInteger(choice) || stage < 0 || choice < 0) throw new HttpError(400, "Choose a mission answer");
-    if (stage !== mission.stage) return res.json({ ...missionView(mission.seed, mission.stage, mission.attempts, false, mission.mistakes), feedback: "Already moved on. Here's your current step." });
+    if (stage !== mission.stage) return send({ ...missionView(mission.seed, mission.stage, mission.attempts, false, mission.mistakes), feedback: "Already moved on. Here's your current step." });
     const correct = isCorrect(mission.seed, stage, choice);
     const updated = (await pool.query(correct
       ? "update bug_missions set stage=stage+1, attempts=0 where attendee_id=$1 and stage=$2 returning seed, stage, attempts, mistakes"
@@ -149,12 +152,12 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
       let seed = crypto.randomInt(0, 2147483647);
       while (sceneIndex(seed) === sceneIndex(updated.seed)) seed = crypto.randomInt(0, 2147483647);
       await pool.query("update bug_missions set seed=$2, stage=0, attempts=0, mistakes=0, reboots=reboots+1 where attendee_id=$1", [a.id, seed]);
-      return res.json({ ...missionView(seed, 0, 0, false, 0), feedback: "reboot" });
+      return send({ ...missionView(seed, 0, 0, false, 0), feedback: "reboot" });
     }
     if (updated?.stage === MISSION_DONE) await pool.query("update bug_missions set completed_at=now() where attendee_id=$1 and completed_at is null", [a.id]);
     const current = updated || (await missionFor(a)).mission;
     const mistakes = (updated as { mistakes?: number } | undefined)?.mistakes ?? (current as { mistakes?: number }).mistakes ?? 0;
-    res.json({ ...missionView(current.seed, current.stage, current.attempts, false, mistakes), feedback: updated ? correct ? "pass" : "Wrong. You lost a heart." : "Already moved on. Here's your current step." });
+    send({ ...missionView(current.seed, current.stage, current.attempts, false, mistakes), feedback: updated ? correct ? "pass" : "Wrong. You lost a heart." : "Already moved on. Here's your current step." });
   }));
 
   // Existing Hall entries keep their rank; new entries require server-recorded mission completion.
@@ -176,6 +179,23 @@ export async function createApp(pool: Pool, cfg: EventConfig, adminPin: string, 
       // A placeholder entry (say, marked squashed from admin) takes the name the attendee types later. Real names stay put.
       if (name !== "Anonymous squasher")
         await pool.query("update squashers set name=$2 where attendee_id=$1 and name='Anonymous squasher'", [a.id, name]);
+      const all = (await pool.query("select attendee_id, name, solved_at, seconds, hearts from squashers order by solved_at, attendee_id")).rows as {
+        attendee_id: number; name: string; solved_at: Date; seconds: number | null; hearts: number | null;
+      }[];
+      const i = all.findIndex((r) => r.attendee_id === a.id);
+      res.json({ rank: i + 1, name: all[i].name, solvedAt: all[i].solved_at, seconds: all[i].seconds, hearts: all[i].hearts });
+    }),
+  );
+
+  // Change your Hall of Fame name after solving (say you left it blank). Same name filter; keeps your rank.
+  app.post(
+    "/api/cards/:code/rename",
+    wrap(async (req, res) => {
+      const a = await findAttendee(req.params.code);
+      const checked = checkName(req.body?.name, 24);
+      if (!checked.ok) throw new HttpError(400, checked.reason);
+      const updated = await pool.query("update squashers set name=$2 where attendee_id=$1 returning attendee_id", [a.id, checked.name || "Anonymous squasher"]);
+      if (!updated.rows[0]) throw new HttpError(403, "Finish the bug hunt first");
       const all = (await pool.query("select attendee_id, name, solved_at, seconds, hearts from squashers order by solved_at, attendee_id")).rows as {
         attendee_id: number; name: string; solved_at: Date; seconds: number | null; hearts: number | null;
       }[];

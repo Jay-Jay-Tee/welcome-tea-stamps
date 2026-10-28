@@ -93,11 +93,50 @@ function sceneFor(seed: number): Scene {
         { title: "Name the bug", prompt: "What kind of bug was this?", options: ["Off-by-one", "Race condition", "Memory leak"], answer: 0 },
       ],
     },
+    {
+      title: "The midnight reset",
+      intro: "At 7:30am on event day, cards say the event hasn't started yet. The server thinks it's still yesterday.",
+      logs: ["7:30am Singapore time: card opened", "server clock reads 23:30 UTC, 27 Oct", "event-day check compares 27 Oct to 28 Oct", "card says: the event hasn't started"],
+      fault: 2,
+      snippet: "const EVENT_DAY = '2026-10-28';\nfunction isEventDay() {\n  const today = new Date().toISOString().slice(0, 10);\n  return today === EVENT_DAY;\n}",
+      patch: ["Work out today's date in Singapore time (Asia/Singapore), not UTC", "Add 8 hours, but only after 4pm", "Compare the hour instead of the date"],
+      checks: [
+        { title: "Early morning", prompt: "With the fix, it's 7:30am Singapore time on 28 Oct. Is it event day?", options: ["Yes", "No, it's still 27 Oct", "Only after noon"], answer: 0 },
+        { title: "Why it broke", prompt: "Why did the old check get the date wrong?", options: ["toISOString() gives the UTC date, 8 hours behind Singapore", "JavaScript can't store October", "The server's clock was broken"], answer: 0 },
+        { title: "Good habit", prompt: "What's the safest rule for date checks like this?", options: ["Compare dates in one stated time zone", "Trust whatever the phone's clock says", "Guess the time zone from the IP address"], answer: 0 },
+      ],
+    },
+    {
+      title: "The vanishing offline stamp",
+      intro: "The wifi dropped at a stall. The volunteer's phone saved the stamp to send later, but the stamp never arrived.",
+      logs: ["wifi drops at the stall", "stamp saved on the volunteer's phone", "wifi back: retry gets 503 (server busy)", "stamp deleted from the phone's queue"],
+      fault: 3,
+      snippet: "for (const code of queue) {\n  try { await sendStamp(code); remove(code); }\n  catch (e) { remove(code); // give up\n  }\n}",
+      patch: ["Keep it queued unless the server says the card doesn't exist (404)", "Remove it after the first failed retry", "Keep retrying forever, even for cards that don't exist"],
+      checks: [
+        { title: "Server busy", prompt: "A retry gets 503 (server busy). What happens to the stamp?", options: ["Stays queued for the next retry", "Deleted", "Counted twice"], answer: 0 },
+        { title: "No such card", prompt: "A retry gets 404 (no card with that code). What now?", options: ["Drop it; that card doesn't exist", "Keep retrying forever", "Create a new card"], answer: 0 },
+        { title: "Safe to retry", prompt: "Why is it safe to send the same stamp more than once?", options: ["The server ignores a stamp it already has", "Phones never actually retry", "Stamps expire after a minute"], answer: 0 },
+      ],
+    },
+    {
+      title: "The stale page",
+      intro: "A fix went live, but phones kept showing the old, buggy page.",
+      logs: ["new version deployed to the server", "phone opens the stamp card", "service worker serves the saved v11 page", "old bug still on screen"],
+      fault: 2,
+      snippet: "const CACHE = 'stamps-v11';\n// page files come from CACHE before the network",
+      patch: ["Bump the cache name (stamps-v12) and fetch from the network first", "Ask everyone at the event to clear their browser", "Delete the service worker file from the server"],
+      checks: [
+        { title: "Next change", prompt: "You edit index.html again. What else should change?", options: ["The cache version name", "Nothing", "The website's domain"], answer: 0 },
+        { title: "Network first", prompt: "\"Network first\" means the page...", options: ["Tries the server, and uses the saved copy only if offline", "Always uses the saved copy", "Never saves a copy"], answer: 0 },
+        { title: "Why keep it", prompt: "Why have a service worker at all?", options: ["So the card still opens when the venue wifi dies", "To make pages load slower", "To track who visits"], answer: 0 },
+      ],
+    },
   ];
   return scenes[seed % scenes.length];
 }
 
-export const SCENE_COUNT = 6;
+export const SCENE_COUNT = 9;
 export const sceneIndex = (seed: number) => seed % SCENE_COUNT;
 
 export function missionView(seed: number, stage: number, attempts: number, completed = false, mistakes = 0) {

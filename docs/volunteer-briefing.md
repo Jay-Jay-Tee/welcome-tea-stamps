@@ -45,8 +45,8 @@ Once a card has the Tech Cell stamp, a hidden bug unlocks on the attendee's card
 - Tapping the donut 5 times fast makes the site "corrupt", then opens a repair lab. The real card and donut stock do not change.
 - The glitch shows what went wrong; they tap the first bad log line, choose a one-line fix, and work through 3 short scenarios. The scenario varies by card. Wrong answers can be retried; a hint appears after 2 misses on one step. Only Close exits the repair lab.
 - Progress is saved on the server, so they can reload and continue. The repair lab needs wifi, but the stamp card still works from its cache.
-- They get 3 hearts. A wrong answer costs one. Losing all 3 reboots the lab with a different bug, and their clock keeps running. There are 6 different bugs, so friends can't just share answers.
+- They get 3 hearts. A wrong answer costs one. Losing all 3 reboots the lab with a different bug, and their clock keeps running. There are 9 different bugs, so friends can't just share answers. A clock shows how long they've taken.
 - Solved: they pick a name for the Hall of Fame and see their rank ("#3 to squash the donut bug") plus a certificate preview and PNG download. A "Bug squashed" badge stays on their card; tapping it brings the rank and certificate back. Earlier Hall entries keep their rank.
 - Keep `/hall.html` open on a laptop or screen at the stall. It shows every solver in order and updates by itself.
 
-If they're stuck, ask what should happen when a tap is repeated or stock is empty. Give the reward when you see the Bug squashed screen or badge.
+If they're stuck, ask what should happen when a tap is repeated or stock is empty. Nothing to hand out: solvers appear on the Hall of Fame automatically and save their own certificate. They can change their Hall of Fame name later with "Change my name".

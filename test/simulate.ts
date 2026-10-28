@@ -233,12 +233,29 @@ assert.equal((await call("POST", "/api/admin/reset", { confirm: "nope" }, admin)
   assert.equal((await call("POST", "/api/admin/hide-name", { code: shiTing.code })).status, 401, "admin only");
 }
 
+// Rename after solving, and the mission clock
+{
+  const c = (await call("POST", "/api/cards", {})).body.code as string;
+  assert.equal((await call("POST", `/api/cards/${c}/rename`, { name: "Early" })).status, 403, "can't rename before solving");
+  await call("POST", "/api/station/stamp", { code: c }, { "x-key": pins["presidential"] });
+  const clockState = (await call("GET", `/api/cards/${c}/bug-hunt`)).body;
+  assert.ok(Number.isInteger(clockState.elapsed) && clockState.elapsed >= 0, "mission reports its clock");
+  await call("POST", "/api/admin/bug", { code: c, on: true }, admin);
+  const before = (await call("POST", `/api/cards/${c}/squash`, {})).body;
+  assert.equal(before.name, "Anonymous squasher");
+  const renamed = (await call("POST", `/api/cards/${c}/rename`, { name: "Ada Lovelace" })).body;
+  assert.equal(renamed.name, "Ada Lovelace");
+  assert.equal(renamed.rank, before.rank, "rename keeps rank");
+  assert.equal((await call("POST", `/api/cards/${c}/rename`, { name: "k n n" })).status, 400, "spaced-out Singlish caught");
+  assert.equal((await call("POST", `/api/cards/${c}/rename`, { name: "cheebye" })).status, 400, "rename uses the name filter");
+}
+
 const end = (await call("GET", "/api/admin/stats", undefined, admin)).body;
-assert.equal(end.attendees, N + 7);
+assert.equal(end.attendees, N + 8);
 assert.equal(end.completed, full.length);
 assert.equal(end.donutsGiven, 100);
 const csv = (await call("GET", "/api/admin/export.csv", undefined, admin)).body as string;
-assert.equal(csv.trim().split("\n").length, N + 8);
+assert.equal(csv.trim().split("\n").length, N + 9);
 
 // Restart with a stall removed from the config: its key dies and its stamps stop counting, keys of other stations survive
 const dropped = cfg.stalls[cfg.stalls.length - 1];

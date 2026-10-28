@@ -10,7 +10,7 @@ const ANYWHERE = [
   "fuck", "fck", "bitch", "cunt", "pussy", "whore", "slut", "nigger", "nigga", "faggot", "retard", "penis", "vagina",
   "bastard", "wank", "twat", "hitler", "molest", "pedophile", "paedophile", "jizz", "dildo", "horny", "onlyfans", "boobs",
   "porno", "pornhub", "bullshit", "shitty", "asshole", "dumbass", "motherf", "blowjob", "handjob", "milf",
-  "kanina", "kannina", "chibai", "cheebye", "jibai", "lanjiao", "lanjiu", "nabei", "pukimak", "butoh", "pundek",
+  "knn", "kanina", "kannina", "chibai", "cheebye", "jibai", "lanjiao", "lanjiu", "nabei", "pukimak", "butoh", "pundek",
 ];
 // Matched only as a whole word, because they hide inside real names:
 // shit (Shi Ting), porn (Pornthip), nazi (Nazira), sohai (Sohail), rapist (therapist), pedo (torpedo), ass (Cassandra), dick (Dickson).
