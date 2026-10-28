@@ -28,7 +28,10 @@
   .fast h3 { font-family: "DM Sans", system-ui, sans-serif; color: var(--blue); font-size: 1.3rem; text-align: center; margin: 0 0 12px; }
   .empty { text-align: center; font-size: 1.15rem; color: var(--muted); margin: 18px 0; }
   .how { text-align: center; color: var(--muted); margin-top: 26px; font-size: 1.05rem; }
+  .more { display: none; width: calc(100% - 6px); margin: 0 6px 6px 0; background: #fff; color: var(--blue); font-size: 1rem; }
   @media (max-width: 900px) {
+    ol.folded li:nth-child(n+4) { display: none; }
+    .more.has-more { display: block; }
     .boards { grid-template-columns: 1fr; gap: 34px; }
     .hero h1 { font-size: 2.6rem; }
     li, li.first { font-size: 1.15rem; padding: 10px 12px; gap: 10px; }
@@ -46,15 +49,17 @@
     <section class="board">
       <h2>First to the donut</h2>
       <p class="sub">Five stamps, one donut.</p>
-      <ol id="donuts"></ol>
+      <ol id="donuts" class="folded"></ol>
+      <button type="button" class="more" data-for="donuts"></button>
       <p class="empty" id="donutsEmpty" hidden>No donuts collected yet.</p>
     </section>
     <section class="board">
       <h2>First to the bug</h2>
       <p class="sub">There's a bug hidden in the stamp card site. Get your Tech Cell stamp to start hunting.</p>
-      <ol id="list"></ol>
+      <ol id="list" class="folded"></ol>
+      <button type="button" class="more" data-for="list"></button>
       <p class="empty" id="empty" hidden>Nobody has squashed it yet. Be the first.</p>
-      <section class="fast" id="fastBox" hidden><h3>Fastest fixes</h3><ol id="fast"></ol></section>
+      <section class="fast" id="fastBox" hidden><h3>Fastest fixes</h3><ol id="fast" class="folded"></ol><button type="button" class="more" data-for="fast"></button></section>
     </section>
   </div>
   <p class="how">Names appear here automatically.</p>
@@ -86,7 +91,17 @@ async function loadDonuts() {
     `<li class="${r.rank === 1 ? "first" : ""}"><span class="rank">#${r.rank}</span><span class="name">${esc(r.name)}</span><span class="when">${esc(at(r.collectedAt))}</span></li>`).join("");
 }
 
-const load = () => Promise.allSettled([loadBugs(), loadDonuts()]);
+// Each list's button shows how many are hidden; the open/closed state survives the 5-second refresh.
+function updateMore() {
+  document.querySelectorAll(".more").forEach((btn) => {
+    const list = $(btn.dataset.for), n = list.children.length;
+    btn.classList.toggle("has-more", n > 3);
+    btn.textContent = list.classList.contains("folded") ? `Show all (${n})` : "Show top 3";
+  });
+}
+document.querySelectorAll(".more").forEach((btn) => btn.onclick = () => { $(btn.dataset.for).classList.toggle("folded"); updateMore(); });
+
+const load = () => Promise.allSettled([loadBugs(), loadDonuts()]).then(updateMore);
 load();
 setInterval(load, 5000);
 </script>
