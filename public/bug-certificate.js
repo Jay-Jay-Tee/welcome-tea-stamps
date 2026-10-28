@@ -25,27 +25,6 @@
     else g.fillText(value, x, y);
     return g.measureText(value).width;
   }
-  function donut(g, x, y, scale = 1) {
-    g.save(); g.translate(x, y); g.rotate(-0.18); g.scale(scale, scale);
-    g.fillStyle = "#a65c38";
-    g.beginPath(); g.arc(6, 11, 130, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#d89255";
-    g.beginPath(); g.arc(0, 0, 128, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#f59bb8";
-    g.beginPath(); g.arc(0, 0, 112, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#fff";
-    g.beginPath(); g.arc(0, 0, 48, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = "rgba(255,255,255,.65)"; g.lineWidth = 8; g.lineCap = "round";
-    g.beginPath(); g.arc(0, 0, 100, -2.65, -1.45); g.stroke();
-    const colors = [GOLD, BLUE, "#fff", "#5aa9e6", "#3fae5a"];
-    for (let i = 0; i < 24; i++) {
-      const angle = i * 2.399;
-      const radius = 65 + (i % 3) * 15;
-      g.save(); g.translate(Math.cos(angle) * radius, Math.sin(angle) * radius); g.rotate(angle);
-      roundRect(g, -12, -3, 24, 6, 3, colors[i % colors.length]); g.restore();
-    }
-    g.restore();
-  }
   // A flattened ladybug under a stomping foot, on a gold splat. Centre at (x, y), about 330px wide.
   function stomp(g, x, y, scale = 1) {
     g.save(); g.translate(x, y); g.scale(scale, scale);
@@ -100,46 +79,47 @@
     canvas.width = 1600; canvas.height = 1000;
     const g = canvas.getContext("2d");
     if (!g) throw new Error("Canvas is unavailable on this device");
-    g.fillStyle = "#eef3f9"; g.fillRect(0, 0, 1600, 1000);
-    g.fillStyle = "#dbe5f0";
-    for (let y = 24; y < 1000; y += 28) for (let x = 24; x < 1600; x += 28) {
-      g.beginPath(); g.arc(x, y, 1.5, 0, Math.PI * 2); g.fill();
-    }
-    roundRect(g, 90, 77, 1430, 870, 28, BLUE);
-    roundRect(g, 70, 57, 1430, 870, 28, "#fffdf8");
-    g.strokeStyle = INK; g.lineWidth = 5; roundPath(g, 70, 57, 1430, 870, 28); g.stroke();
-    roundRect(g, 70, 57, 20, 870, 10, GOLD);
-
-    // Club mark and rank make it feel like an event memento rather than a form.
-    if (logo.naturalWidth) g.drawImage(logo, 121, 108, 86, 86);
-    else {
-      g.fillStyle = BLUE; g.beginPath(); g.arc(164, 151, 43, 0, Math.PI * 2); g.fill();
-      g.textAlign = "center"; text(g, "NUS", 164, 161, 25, "#fff", 700);
-      g.textAlign = "left";
-    }
-    text(g, "NUS STUDENTS' COMPUTING CLUB", 229, 146, 27, BLUE, 700);
-    text(g, "WELCOME TEA  /  COMMIT-TEA.", 229, 182, 22, "#5b6677", 500);
-    roundRect(g, 1198, 111, 236, 82, 16, "#fff2cc");
-    text(g, `HALL OF FAME  #${rank}`, 1221, 162, 26, INK, 700, 193);
-    g.strokeStyle = "#c5cfdb"; g.lineWidth = 2; g.beginPath(); g.moveTo(132, 228); g.lineTo(1435, 228); g.stroke();
-
-    text(g, "OFFICIAL BUG HUNT CERTIFICATE", 140, 300, 25, "#5b6677", 700);
-    text(g, "BUG SQUASHER", 137, 408, 91, BLUE, 700, 950);
-    text(g, "PATCH APPLIED. TESTS PASSED.", 141, 466, 31, INK, 700);
-    donut(g, 1300, 352, 0.78);
-
-    // Keep the playful squash scene as a small seal in the right column.
-    stomp(g, 1262, 590, 0.62);
-
-    text(g, "Proudly awarded to", 142, 577, 30, "#5b6677", 500);
-    const displayName = String(name || "Anonymous squasher");
-    const nameWidth = text(g, displayName, 139, 665, 79, INK, 700, 900);
-    const underlineWidth = Math.min(nameWidth + 18, displayName.length * 50, 900);
-    g.strokeStyle = GOLD; g.lineWidth = 8; g.beginPath(); g.moveTo(142, 689); g.lineTo(142 + underlineWidth, 689); g.stroke();
-    text(g, "For finding the hidden donut bug and repairing it at the Computing Club Welcome Tea.", 142, 751, 28, INK, 500, 1170);
-    g.strokeStyle = "#c5cfdb"; g.lineWidth = 2; g.beginPath(); g.moveTo(132, 806); g.lineTo(1435, 806); g.stroke();
-    text(g, `${date}  |  ${venue}`, 142, 859, 25, "#5b6677", 500, 850);
-    text(g, `CARD ${code}`, 1160, 859, 24, BLUE, 700, 276);
+    g.fillStyle = "#f3efe6"; g.fillRect(0, 0, 1600, 1000);
+    roundRect(g, 38, 38, 1524, 924, 24, "#fffdf8");
+    g.save(); roundPath(g, 38, 38, 1524, 924, 24); g.clip();
+    g.fillStyle = INK; g.fillRect(1120, 38, 442, 924);
+    g.fillStyle = GOLD; g.fillRect(1112, 38, 8, 924);
+    g.restore();
+    g.strokeStyle = INK; g.lineWidth = 2; roundPath(g, 38, 38, 1524, 924, 24); g.stroke();
+    if (logo.naturalWidth) {
+      const fit = Math.min(68 / logo.naturalWidth, 68 / logo.naturalHeight);
+      g.drawImage(logo, 104, 98, logo.naturalWidth * fit, logo.naturalHeight * fit);
+    } else text(g, "NUS", 104, 145, 28, BLUE, 700);
+    text(g, "NUS STUDENTS’ COMPUTING CLUB", 194, 125, 25, BLUE, 700, 830);
+    text(g, "WELCOME TEA  /  COMMIT-TEA.", 194, 160, 20, "#697181", 500);
+    g.strokeStyle = "#d8dce2"; g.lineWidth = 2; g.beginPath(); g.moveTo(104, 204); g.lineTo(1046, 204); g.stroke();
+    text(g, "CERTIFICATE OF ACHIEVEMENT", 104, 270, 21, "#697181", 700);
+    text(g, "BUG", 98, 383, 108, BLUE, 700);
+    text(g, "SQUASHER", 98, 490, 108, BLUE, 700, 960);
+    roundRect(g, 104, 518, 67, 6, 3, GOLD);
+    text(g, "Proudly awarded to", 104, 583, 25, "#697181", 500);
+    const displayName = String(name || "Anonymous squasher").trim() || "Anonymous squasher";
+    text(g, displayName, 100, 668, 76, INK, 700, 930);
+    g.strokeStyle = "#d8dce2"; g.lineWidth = 2; g.beginPath(); g.moveTo(104, 697); g.lineTo(1046, 697); g.stroke();
+    text(g, "For finding the fault, applying the patch, and proving the fix", 104, 747, 25, INK, 500, 930);
+    text(g, "at the Computing Club Welcome Tea.", 104, 784, 25, INK, 500, 930);
+    text(g, "ISSUED", 104, 859, 17, "#697181", 700);
+    text(g, String(date || ""), 104, 893, 23, INK, 500, 490);
+    text(g, "VENUE", 680, 859, 17, "#697181", 700);
+    text(g, String(venue || ""), 680, 893, 23, INK, 500, 365);
+    g.textAlign = "center";
+    text(g, "HALL OF FAME", 1340, 143, 22, GOLD, 700);
+    text(g, `#${rank}`, 1340, 235, 78, "#fffdf8", 700, 310);
+    g.fillStyle = GOLD; g.beginPath(); g.arc(1340, 480, 166, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fff8e8"; g.beginPath(); g.arc(1340, 480, 154, 0, Math.PI * 2); g.fill();
+    g.textAlign = "left";
+    stomp(g, 1310, 478, 0.72);
+    g.textAlign = "center";
+    text(g, "FOUND. FIXED. VERIFIED.", 1340, 720, 20, "#fffdf8", 700, 350);
+    g.strokeStyle = "#4d5a72"; g.lineWidth = 2; g.beginPath(); g.moveTo(1180, 775); g.lineTo(1500, 775); g.stroke();
+    text(g, "COMMIT-TEA. REPAIR LAB", 1340, 826, 18, "#c5cfdb", 500, 330);
+    text(g, `CARD ${code}`, 1340, 871, 20, GOLD, 700, 330);
+    g.textAlign = "left";
 
     return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create the PNG")), "image/png"));
   }
