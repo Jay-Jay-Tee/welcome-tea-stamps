@@ -189,13 +189,7 @@
     <p>&lt;!-- TODO: hide this page before the welcome tea --&gt;</p>
     <p><img src="/img/logo_final_v2_REAL.png" alt="logo_final_v2_REAL.png" width="120" height="40"></p>
     <h2>Attendees (sample data)</h2>
-    <table>
-      <tr><th>id</th><th>name</th><th>stamps</th><th>donut</th><th>notes</th></tr>
-      <tr><td>1</td><td>Lorem Ipsum</td><td>???</td><td>null</td><td>undefined</td></tr>
-      <tr><td>2</td><td>{{ attendee.name }}</td><td>NaN</td><td>true?</td><td>[object Object]</td></tr>
-      <tr><td>3</td><td>test test test</td><td>-1</td><td></td><td>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</td></tr>
-      <tr><td>4</td><td>asdf</td><td>9999</td><td>false</td><td>DO NOT SHIP</td></tr>
-    </table>
+    <table id="staffTable"></table>
     <p><button type="button" class="staff-act" data-act="delete">Delete all donuts</button><button type="button" class="staff-act" data-act="export">Export users</button><button type="button" class="staff-act" data-act="give">Give everyone 5 stamps</button></p>
     <div class="spill">This text was meant to fit inside this little box, but nobody tested the page on a phone, so now it spills out over everything underneath it and nobody noticed.</div>
     <div class="console" id="staffConsole">&gt; donut.eat()
@@ -476,6 +470,7 @@ function donutTap() {
 // The address bar shows /staff-only while it's open; Back or the exit link returns to the card.
 const STAFF_CONSOLE = "> donut.eat()\nUncaught TypeError: donut.eat is not a function\n    at render (admin.js:404)\n    at tea (commit-tea.js:28)\nWarning: donut stock is -3\nWarning: {{ unread_count }} is not defined";
 function openStaff() {
+  staffRows = STAFF_SAMPLE(); staffDonuts = 3; renderStaffTable();
   $("staffConsole").textContent = STAFF_CONSOLE;
   document.querySelectorAll("#staff .broke").forEach((el) => el.remove());
   document.querySelectorAll("#staff .staff-act").forEach((b) => b.disabled = false);
@@ -490,27 +485,69 @@ function closeStaff(fromHistory) {
   if (!fromHistory && history.state && history.state.staff) { try { history.back(); } catch {} }
 }
 
-// Pressing an admin button you shouldn't have access to "breaks" the panel: console errors, page glitch,
-// then the repair lab opens to fix it. Nothing real happens to cards, stamps or donuts.
-const STAFF_FALLOUT = {
-  delete: ["> deleteAllDonuts()", "Deleting donuts... 1, 2, 3, 4, 5, ...", "FATAL: donut stock is now -117", "Segmentation fault (core dumped)"],
-  export: ["> exportUsers()", "Exporting {{ users }} ...", "TypeError: cannot read properties of undefined (reading 'name')", "Segmentation fault (core dumped)"],
-  give: ["> giveEveryone(5)", "Adding stamps... stamps = stamps + '5'", "Warning: Aisha now has 25 stamps", "FATAL: integer overflow in stamp counter"],
+// The panel's own pretend data. The bugs below are real code that really misbehaves,
+// but only on this list: real cards, stamps and donuts are never touched.
+const STAFF_SAMPLE = () => [
+  { id: 1, name: "Lorem Ipsum", stamps: "3", donut: "null", notes: "undefined" },
+  { id: 2, name: "{{ attendee.name }}", stamps: "1", donut: "true?", notes: "TODO" },
+  { id: 3, name: "test test test", stamps: "4", donut: "", notes: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { id: 4, name: "asdf", stamps: "2", donut: "false", notes: "DO NOT SHIP" },
+];
+let staffRows = STAFF_SAMPLE(), staffDonuts = 3;
+function renderStaffTable() {
+  $("staffTable").innerHTML = `<tr><th>id</th><th>name</th><th>stamps</th><th>donut</th><th>notes</th></tr>` +
+    staffRows.map((r) => `<tr><td>${esc(r.id)}</td><td>${esc(String(r.name))}</td><td>${esc(r.stamps)}</td><td>${esc(r.donut)}</td><td>${esc(r.notes)}</td></tr>`).join("");
+}
+
+// Deliberately buggy admin actions. Each returns steps; every step changes staffRows and logs what happened.
+const STAFF_BUGS = {
+  // BUG: stamps are stored as text, so + 5 glues a "5" on the end instead of adding.
+  // BUG: a line meant to keep a backup appends the copy to the table instead.
+  give: () => [1, 2, 3].map((round) => () => {
+    for (const r of staffRows) r.stamps = r.stamps + 5;
+    if (round === 1) staffRows = staffRows.concat(staffRows.map((r) => ({ ...r })));
+    return round === 1
+      ? ["> giveEveryone(5)", `Lorem Ipsum: "3" + 5 = "${staffRows[0].stamps}"`, `rows: 4 -> ${staffRows.length} (backup appended to the table)`]
+      : [`> giveEveryone(5)   // retrying...`, `Lorem Ipsum now has ${staffRows[0].stamps} stamps`];
+  }),
+  // BUG: deleting rows while looping forward skips every other one, so half survive.
+  delete: () => [() => {
+    const before = staffRows.length;
+    for (let i = 0; i < staffRows.length; i++) staffRows.splice(i, 1);
+    staffDonuts -= 120;
+    return ["> deleteAllDonuts()", `deleted ${before - staffRows.length} of ${before} rows?`, `${staffRows.length} rows are still here`, `donut stock: ${staffDonuts}`];
+  }],
+  // BUG: "" + row turns each row into "[object Object]", and a typo (nmae) makes every name undefined.
+  export: () => [() => {
+    const csv = staffRows.map((r) => "" + r);
+    for (const r of staffRows) { r.name = r.nmae; r.notes = csv[0]; }
+    return ["> exportUsers()", `export.csv line 1: ${csv[0]}`, `user 1 name: ${staffRows[0].name}`, "TypeError: cannot read properties of undefined (reading 'length')"];
+  }],
 };
+
+// Pressing an admin button runs its buggy code for real (on the pretend data), shows the damage,
+// then the panel "crashes" into the repair lab.
 document.querySelectorAll("#staff .staff-act").forEach((btn) => btn.onclick = () => {
   if (!hasTech() || glitchTimer) return;
   document.querySelectorAll("#staff .staff-act").forEach((b) => b.disabled = true);
   const out = $("staffConsole");
-  const lines = STAFF_FALLOUT[btn.dataset.act] || STAFF_FALLOUT.delete;
-  lines.forEach((line, i) => setTimeout(() => { out.textContent += "\n" + line; }, 220 * (i + 1)));
+  const steps = (STAFF_BUGS[btn.dataset.act] || STAFF_BUGS.delete)();
+  const gap = 900;
+  steps.forEach((step, i) => setTimeout(() => {
+    let lines;
+    try { lines = step(); } catch (e) { lines = [`Uncaught ${e.name}: ${e.message}`]; }
+    renderStaffTable();
+    out.textContent += "\n" + lines.join("\n");
+  }, gap * i + 200));
+  const done = gap * steps.length + 200;
   setTimeout(() => {
     out.insertAdjacentHTML("afterend", `<div class="broke">You broke the admin panel. Fix it before anyone notices.</div>`);
     out.scrollIntoView({ block: "center" });
-  }, 220 * (lines.length + 1));
+  }, done);
   setTimeout(() => {
     const cardCode = code;
     corrupt(() => { closeStaff(); if (code === cardCode && hasTech()) openMission(); });
-  }, 220 * (lines.length + 1) + 1100);
+  }, done + 1400);
 });
 $("staffLeave").onclick = (e) => { e.preventDefault(); closeStaff(); };
 window.addEventListener("popstate", () => closeStaff(true));
